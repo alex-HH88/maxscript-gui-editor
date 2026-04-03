@@ -25,11 +25,12 @@ from PySide6.QtWidgets import (
 )
 
 from .bridge import MaxBridge, BridgeConfig
-
 from .models import RolloutModel, ControlModel, CONTROL_TYPES, CONTROL_DEFAULTS
 from .canvas import RolloutCanvas
 from .properties_panel import PropertiesPanel
 from .code_generator import generate_code
+from .ms_parser import parse_ms_file, ParsedMS
+from .ms_writer import write_ms_file
 
 
 _STYLE = """
@@ -140,6 +141,7 @@ class MainWindow(QMainWindow):
         self._bridge_config = BridgeConfig()
         self._bridge = MaxBridge(self._bridge_config)
         self._load_bridge_config()
+        self._parsed_ms: Optional[ParsedMS] = None   # active .ms round-trip state
 
         self._init_ui()
         self._init_menu()
@@ -250,17 +252,29 @@ class MainWindow(QMainWindow):
 
         # File
         fm = mb.addMenu("File")
-        a_new  = QAction("New",        self); a_new.setShortcut("Ctrl+N")
-        a_open = QAction("Open…",      self); a_open.setShortcut("Ctrl+O")
-        a_save = QAction("Save",       self); a_save.setShortcut("Ctrl+S")
-        a_saveas = QAction("Save As…", self); a_saveas.setShortcut("Ctrl+Shift+S")
-        a_quit = QAction("Quit",       self); a_quit.setShortcut("Ctrl+Q")
+        a_new    = QAction("New",                 self); a_new.setShortcut("Ctrl+N")
+        a_open   = QAction("Open Layout (.json)…",self); a_open.setShortcut("Ctrl+O")
+        a_save   = QAction("Save",                self); a_save.setShortcut("Ctrl+S")
+        a_saveas = QAction("Save As…",            self); a_saveas.setShortcut("Ctrl+Shift+S")
+        a_imp_ms = QAction("Open .ms File…",      self); a_imp_ms.setShortcut("Ctrl+Shift+O")
+        a_sav_ms = QAction("Save back to .ms",    self); a_sav_ms.setShortcut("Ctrl+Shift+M")
+        a_quit   = QAction("Quit",                self); a_quit.setShortcut("Ctrl+Q")
         a_new.triggered.connect(self._new)
         a_open.triggered.connect(self._open)
         a_save.triggered.connect(self._save)
         a_saveas.triggered.connect(self._save_as)
+        a_imp_ms.triggered.connect(self._open_ms)
+        a_sav_ms.triggered.connect(self._save_ms)
         a_quit.triggered.connect(self.close)
-        fm.addActions([a_new, a_open, a_save, a_saveas, fm.addSeparator(), a_quit])
+        fm.addAction(a_new)
+        fm.addAction(a_open)
+        fm.addAction(a_save)
+        fm.addAction(a_saveas)
+        fm.addSeparator()
+        fm.addAction(a_imp_ms)
+        fm.addAction(a_sav_ms)
+        fm.addSeparator()
+        fm.addAction(a_quit)
 
         # Edit
         em = mb.addMenu("Edit")
@@ -436,6 +450,7 @@ class MainWindow(QMainWindow):
         self._model = RolloutModel()
         self._current_file = None
         self._dirty = False
+        self._parsed_ms = None
         self._undo_stack.clear()
         self._redo_stack.clear()
         self._reload_all()
@@ -454,6 +469,7 @@ class MainWindow(QMainWindow):
             self._model = RolloutModel.load_json(path)
             self._current_file = Path(path)
             self._dirty = False
+            self._parsed_ms = None
             self._undo_stack.clear()
             self._redo_stack.clear()
             self._reload_all()
@@ -483,6 +499,68 @@ class MainWindow(QMainWindow):
             self._status.showMessage(f"Saved: {path}")
         except Exception as e:
             QMessageBox.critical(self, "Save Error", str(e))
+
+    # ------------------------------------------------------------------
+    # .ms round-trip import / export
+    # ------------------------------------------------------------------
+    def _open_ms(self):
+        if not self._confirm_discard():
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open MAXScript File", "",
+            "MAXScript Files (*.ms);;All files (*)"
+        )
+        if not path:
+            return
+        try:
+            parsed = parse_ms_file(path)
+            if not parsed.model.controls and not parsed.parse_warnings:
+                QMessageBox.warning(self, "Open .ms",
+                    "No rollout block or controls found in this file.\n"
+                    "The file may use dynamic control creation which cannot be parsed.")
+                return
+
+            self._parsed_ms = parsed
+            self._model = parsed.model
+            self._current_file = Path(path)
+            self._dirty = False
+            self._undo_stack.clear()
+            self._redo_stack.clear()
+            self._reload_all()
+
+            msg = f"Opened: {Path(path).name}  —  {len(parsed.model.controls)} controls"
+            if parsed.parse_warnings:
+                msg += f"  ⚠ {len(parsed.parse_warnings)} warning(s)"
+                detail = "\n".join(parsed.parse_warnings)
+                QMessageBox.information(self, "Parse Warnings", detail)
+            self._status.showMessage(msg)
+            self._update_ms_indicator()
+        except Exception as e:
+            QMessageBox.critical(self, "Open .ms Error", str(e))
+
+    def _save_ms(self):
+        if self._parsed_ms is None:
+            QMessageBox.information(self, "Save to .ms",
+                "No .ms file is loaded.\nUse  File > Open .ms File…  first.")
+            return
+        # sync model back into parsed object
+        self._parsed_ms.model = self._model
+        try:
+            write_ms_file(self._parsed_ms, str(self._current_file))
+            self._dirty = False
+            self._update_title()
+            self._status.showMessage(f"Saved .ms: {self._current_file.name}")
+        except Exception as e:
+            QMessageBox.critical(self, "Save .ms Error", str(e))
+
+    def _update_ms_indicator(self):
+        """Show a subtle indicator in the status bar when a .ms file is active."""
+        if self._parsed_ms is not None:
+            self._status.showMessage(
+                f"Mode: .ms round-trip  ·  {self._current_file.name if self._current_file else '?'}"
+                f"  ·  {len(self._model.controls)} controls"
+                f"  ·  Ctrl+Shift+M = save back"
+            )
 
     # ------------------------------------------------------------------
     # Bridge

@@ -148,6 +148,15 @@ def _build_control(c: ControlModel, indent: str = "\t") -> str:
     return "\n".join(lines)
 
 
+def _build_control_decl_only(c: ControlModel, indent: str = "\t") -> str:
+    """Like _build_control but WITHOUT event handler blocks.
+    Used by the round-trip writer so event bodies can be written verbatim."""
+    import copy as _copy
+    tmp = _copy.copy(c)
+    tmp.event_handlers = []
+    return _build_control(tmp, indent)
+
+
 def build_rollout_code(model: RolloutModel) -> str:
     """Generate a plain rollout block."""
     lines: list[str] = []
