@@ -1,0 +1,160 @@
+MAXScript GUI Editor
+====================
+Wizualny projektant Rollout i MacroScript dla Autodesk 3ds Max
+--------------------------------------------------------------
+Dwie wersje:
+  A) Wersja MAXScript  — działa bezpośrednio w 3ds Max
+  B) Wersja Python     — aplikacja desktopowa z płótnem WYSIWYG i mostem TCP
+
+==============================================================
+  A) WERSJA MAXSCRIPT
+==============================================================
+
+WYMAGANIA
+  - Autodesk 3ds Max 2022 lub nowszy
+
+INSTALACJA
+  1. Rozpakuj  maxscript-gui-editor-<wersja>.zip.
+  2. Otwórz 3ds Max.
+  3. Uruchom instalator — jedna z metod:
+       • Przeciągnij  installer-<wersja>.ms  na okno widoku (viewport)
+       • Scripting > Run Script > wybierz  installer-<wersja>.ms
+  4. Przeczytaj i zamknij okno potwierdzenia.
+     Narzędzie jest teraz zarejestrowane jako MacroScript (kategoria „Tools").
+
+DODAWANIE PRZYCISKU DO PASKA NARZĘDZI
+  - Customize > Customize User Interface > zakładka „Toolbars"
+  - Kategoria: Tools
+  - Przeciągnij „MAXScript GUI Editor" na dowolny pasek narzędzi.
+  Wskazówka: W zakładce „Keyboard" możesz przypisać skrót klawiszowy.
+
+OBSŁUGA
+  Lewy panel    – przyciski „Add Control": wybierz typ kontrolki i dodaj ją.
+  Prawy panel   – edytuj właściwości wybranej kontrolki.
+  Dolny obszar  – ustawienia rolloutu, cofnij/ponów, zapis, generowanie kodu.
+
+  Dodaj kontrolkę       → kliknij przycisk w lewym panelu
+  Wybierz kontrolkę     → kliknij ją na liście po lewej
+  Edytuj właściwości    → prawy panel (zależny od typu)
+  Obsługa zdarzeń       → zakładka „Event Handlers" w lewym panelu
+  Generuj kod           → „Generate Code" → kod kopiowany do schowka
+  Tryb MacroScript      → aktywuj w zakładce „MacroScript Config"
+
+ZAPIS / WCZYTYWANIE
+  „Save Layout"   → zapis projektu jako plik .dat
+  „Load Layout"   → wczytanie zapisanego projektu
+  „Import Code"   → parsowanie istniejącego kodu rollout MAXScript
+                    (parser podstawowy — skomplikowane wyrażenia mogą wymagać
+                    ręcznej korekty)
+
+DEINSTALACJA
+  1. Usuń folder:
+       %LOCALAPPDATA%\Autodesk\3dsMax\<wersja>\ENU\scripts\MAXScriptGUIEditor\
+  2. Usuń przycisk paska narzędzi:
+       Customize > Customize User Interface > kliknij przycisk prawym przyciskiem
+       myszy > Delete.
+
+==============================================================
+  B) WERSJA PYTHON STANDALONE
+==============================================================
+
+WYMAGANIA
+  - Python 3.9 lub nowszy  (https://www.python.org/downloads/)
+    → W systemie Windows: zaznacz „Add Python to PATH" podczas instalacji
+  - PySide6  (instalowany automatycznie przez instalator)
+
+INSTALACJA — WINDOWS
+  1. Rozpakuj  maxscript-gui-editor-python-<wersja>.zip.
+  2. Kliknij dwukrotnie  install.bat.
+  3. Skrypt automatycznie:
+       • sprawdza wersję Pythona
+       • tworzy środowisko wirtualne w:
+           %LOCALAPPDATA%\MAXScriptGUIEditor\
+       • instaluje PySide6
+       • tworzy skrót na pulpicie i wpis w menu Start
+  4. Gotowe — uruchom aplikację ze skrótu na pulpicie.
+
+INSTALACJA — LINUX / MACOS
+  1. Rozpakuj archiwum ZIP.
+  2. Otwórz terminal w folderze z rozpakowanymi plikami:
+       bash install.sh
+  3. Skrypt tworzy:
+       • środowisko wirtualne w  ~/.local/share/maxscript-gui-editor/
+       • skrypt startowy w       ~/.local/bin/maxscript-gui-editor
+       • Linux: wpis .desktop w menu aplikacji
+       • macOS: bundle aplikacji w  ~/Applications/
+  4. Uruchomienie:
+       maxscript-gui-editor        (terminal)
+       lub przez menu aplikacji
+
+RĘCZNE URUCHOMIENIE (bez instalatora)
+  pip install PySide6
+  python main.py
+
+OBSŁUGA
+  Lewy panel       – przeciągnij kontrolki z palety na płótno
+                     lub kliknij „Add →"
+  Płótno (środek)  – podgląd WYSIWYG; przeciągnij kontrolki, aby zmienić
+                     ich położenie (przyciąganie do siatki co 4 px)
+  Prawy panel      – 4 zakładki:
+                       Control     – nazwa, etykieta, pozycja, rozmiar,
+                                     właściwości typowe dla kontrolki
+                       Events      – obsługa zdarzeń z edytorem kodu
+                       Rollout     – nazwa rolloutu, tytuł, szerokość
+                       MacroScript – tryb wyjścia, kategoria, nazwa wewnętrzna
+  Obszar kodu      – na dole: podgląd, kopiowanie lub wysyłanie kodu do 3ds Max
+
+  Skróty klawiszowe:
+    Ctrl+Z / Ctrl+Y   Cofnij / Ponów (50 poziomów)
+    F5                Generuj kod
+    F6                Wyślij kod do 3ds Max (most TCP)
+    Ctrl+Shift+C      Kopiuj kod do schowka
+    Ctrl+D            Duplikuj wybraną kontrolkę
+    Del               Usuń wybraną kontrolkę
+
+ZAPIS / WCZYTYWANIE
+  Plik > Save   → zapis projektu jako .json
+  Plik > Open   → wczytanie zapisanego projektu
+  Format: JSON (czytelny, kompatybilny z Git)
+
+DEINSTALACJA — WINDOWS
+  - Usuń folder:  %LOCALAPPDATA%\MAXScriptGUIEditor\
+  - Ręcznie usuń skrót z pulpitu.
+
+DEINSTALACJA — LINUX / MACOS
+  rm -rf ~/.local/share/maxscript-gui-editor/
+  rm -f  ~/.local/bin/maxscript-gui-editor
+  rm -f  ~/.local/share/applications/maxscript-gui-editor.desktop   (Linux)
+  rm -rf ~/Applications/MAXScript\ GUI\ Editor.app                  (macOS)
+
+==============================================================
+  C) MOST TCP — POŁĄCZENIE NA ŻYWO Z 3DS MAX
+==============================================================
+
+Aplikacja Python może wysyłać wygenerowany kod bezpośrednio do
+działającej instancji 3ds Max — bez kopiowania i wklejania.
+
+URUCHOMIENIE MOSTU (w 3ds Max)
+  Scripting > Run Script > wybierz  max_bridge_listener.ms
+  Okno MAXScript Listener wyświetli:
+    === MAXScript Bridge Listener started on port 27120 ===
+
+WYSYŁANIE KODU (w aplikacji Python)
+  1. Code > Bridge Settings… — sprawdź host i port
+       Domyślnie: 127.0.0.1 : 27120
+  2. „⬤ Ping" — przetestuj połączenie (zielony = sukces)
+  3. „▶ Send to Max" lub F6 — kod jest wykonywany w 3ds Max
+
+ZATRZYMANIE MOSTU (w 3ds Max)
+  Wpisz w oknie MAXScript Listener:
+    stopBridgeListener()
+
+TWORZENIE STANDALONE EXE (bez Pythona na komputerze docelowym)
+  pip install pyinstaller
+  pyinstaller maxscript_gui_editor.spec
+  → Wynik: dist\MAXScriptGUIEditor\MAXScriptGUIEditor.exe
+
+==============================================================
+  WSPARCIE / KOD ŹRÓDŁOWY
+==============================================================
+  https://github.com/alex-HH88/maxscript-gui-editor

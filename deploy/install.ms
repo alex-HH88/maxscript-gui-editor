@@ -2,7 +2,7 @@
 -- Run this script once to install the tool into 3ds Max.
 -- After installation, find it under: Customize > Toolbars > Category: Tools
 --
-global TOOLS_VERSION = "1.04"
+global TOOLS_VERSION = "1.05"
 
 (
 	local maxVer = (maxVersion())[1] / 1000
