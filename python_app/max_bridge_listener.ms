@@ -218,7 +218,7 @@ fn startBridgeListener =
     _bridgeListener  = dotNetObject "System.Net.Sockets.TcpListener" endpoint
     _bridgeListener.Start()
 
-    local tsDelegate = dotNet.createDelegate "System.Threading.ThreadStart" _bridgeLoopFn
+    local tsDelegate = dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn
     _bridgeThread = dotNetObject "System.Threading.Thread" tsDelegate
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
