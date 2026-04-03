@@ -65,9 +65,8 @@ echo "Built: ${ZIP_NAME}"
 # --- 3b. Build Python App ZIP ---
 PY_ZIP_NAME="maxscript-gui-editor-python-${NEW_VERSION}.zip"
 PY_STAGING=$(mktemp -d)
-mkdir -p "$PY_STAGING/app"
 
-cp -r python_app/app/       "$PY_STAGING/app/"
+cp -r python_app/app         "$PY_STAGING/app"
 cp    python_app/main.py             "$PY_STAGING/"
 cp    python_app/requirements.txt    "$PY_STAGING/"
 cp    python_app/install.bat         "$PY_STAGING/"
