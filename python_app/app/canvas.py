@@ -116,16 +116,20 @@ class ControlItem(QGraphicsItem):
             display = f"⏱ {self.model.name}"
         elif ct == "progressbar":
             display = ""
-            bar_w = int(r.width() * (self.model.range_val / max(1, self.model.range_max)))
+            rng = max(1, self.model.range_max - self.model.range_min)
+            val = max(self.model.range_min, min(self.model.range_val, self.model.range_max))
+            bar_w = int(r.width() * ((val - self.model.range_min) / rng))
             painter.setBrush(QBrush(QColor("#4CAF50")))
             painter.setPen(Qt.NoPen)
-            painter.drawRect(QRectF(1, 1, bar_w - 2, r.height() - 2))
+            painter.drawRect(QRectF(1, 1, max(0, bar_w - 2), r.height() - 2))
         elif ct == "slider":
             display = ""
             mid_y = r.height() / 2
             painter.setPen(QPen(QColor("#AAAAAA"), 2))
             painter.drawLine(QPointF(4, mid_y), QPointF(r.width() - 4, mid_y))
-            thumb_x = 4 + (r.width() - 8) * (self.model.range_val / max(1, self.model.range_max))
+            rng = max(1, self.model.range_max - self.model.range_min)
+            val = max(self.model.range_min, min(self.model.range_val, self.model.range_max))
+            thumb_x = 4 + (r.width() - 8) * ((val - self.model.range_min) / rng)
             painter.setBrush(QBrush(QColor("#FFFFFF")))
             painter.setPen(QPen(QColor("#888888"), 1))
             painter.drawEllipse(QPointF(thumb_x, mid_y), 5, 5)

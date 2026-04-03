@@ -66,8 +66,9 @@ _ROLLOUT_RE = re.compile(
     r'^(\s*)rollout\s+(\w+)\s+"([^"]*)"(.*)',
     re.IGNORECASE
 )
+# Group 4 captures optional inline body after "do" (single-line handlers)
 _ON_RE = re.compile(
-    r'^\s*on\s+(\w+)\s+(\w+)(.*?)\s+do\s*$',
+    r'^\s*on\s+(\w+)\s+(\w+)(.*?)\s+do(\s+\S.*)?\s*$',
     re.IGNORECASE
 )
 
@@ -325,11 +326,15 @@ def _parse_rollout_body(
             ctrl_name = on_m.group(1)
             event_name = on_m.group(2)
             args_str = on_m.group(3).strip()
+            inline_body = on_m.group(4)   # non-None for single-line: "on x p do <code>"
             handler_header = raw          # save for orphan verbatim output
             i += 1
 
-            # collect body using string-aware paren counter (Fix Bug #16)
-            if i < len(body) and body[i].strip().startswith('('):
+            if inline_body is not None:
+                # single-line handler: body is on the same line after "do"
+                body_code = inline_body.strip() + '\n'
+            elif i < len(body) and body[i].strip().startswith('('):
+                # collect body using string-aware paren counter (Fix Bug #16)
                 depth = 0
                 block: list[str] = []
                 while i < len(body):

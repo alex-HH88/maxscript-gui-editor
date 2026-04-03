@@ -295,7 +295,9 @@ class MainWindow(QMainWindow):
         a_redo.triggered.connect(self._redo)
         a_del.triggered.connect(self._delete_selected)
         a_dup.triggered.connect(self._duplicate_selected)
-        em.addActions([a_undo, a_redo, em.addSeparator(), a_del, a_dup])
+        em.addActions([a_undo, a_redo])
+        em.addSeparator()
+        em.addActions([a_del, a_dup])
 
         # Code
         cm = mb.addMenu("Code")
@@ -685,14 +687,26 @@ class MainWindow(QMainWindow):
 
     def _ping_max(self):
         self._status.showMessage("Pinging 3ds Max…")
-        ok, msg = self._bridge.ping()
-        if ok:
-            self._btn_ping.setStyleSheet("color:#4CAF50; font-weight:bold;")
-            self._status.showMessage(f"3ds Max reachable — {msg}")
-        else:
-            self._btn_ping.setStyleSheet("color:#F44336; font-weight:bold;")
-            self._status.showMessage("3ds Max not reachable")
-            QMessageBox.warning(self, "Bridge Ping", msg)
+        self._btn_ping.setEnabled(False)
+
+        result = _BridgeResult(self)
+
+        def _done():
+            self._btn_ping.setEnabled(True)
+
+        result.ok.connect(lambda msg: (
+            _done(),
+            self._btn_ping.setStyleSheet("color:#4CAF50; font-weight:bold;"),
+            self._status.showMessage(f"3ds Max reachable — {msg}"),
+        ))
+        result.err.connect(lambda msg: (
+            _done(),
+            self._btn_ping.setStyleSheet("color:#F44336; font-weight:bold;"),
+            self._status.showMessage("3ds Max not reachable"),
+            QMessageBox.warning(self, "Bridge Ping", msg),
+        ))
+
+        self._bridge.send_async("-- ping", result.ok.emit, result.err.emit)
 
     # ------------------------------------------------------------------
     def _update_title(self):
