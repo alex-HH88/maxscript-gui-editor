@@ -117,53 +117,25 @@ fn handleClientV2 clientSocket =
         local writer    = dotNetObject "System.IO.StreamWriter" netStream
         writer.AutoFlush = true
 
-        -- Read header line
-        local header = ""
-        local limit  = 128
-        while limit > 0 do
-        (
-            limit -= 1
-            local b = netStream.ReadByte()
-            if b < 0 do exit
-            if b == 10 do exit          -- LF
-            if b != 13 do               -- skip CR
-                header += bit.intAsChar b
-        )
+        -- Read first line
+        local firstLine = reader.ReadLine()
 
         -- handle ping
-        if header == "-- ping" do
+        if firstLine == "-- ping" do
         (
             writer.WriteLine "OK:pong"
             _closeClient clientSocket writer
             return undefined
         )
 
-        if header == undefined or header.count < 8 do
+        -- Read code lines until terminator
+        local code = firstLine + "\n"
+        local line  = reader.ReadLine()
+        while line != "--END_CODE--" and line != undefined do
         (
-            writer.WriteLine "ERROR:bad_header"
-            _closeClient clientSocket writer
-            return undefined
+            code += line + "\n"
+            line = reader.ReadLine()
         )
-
-        local payloadLen = 0
-        try ( payloadLen = (execute ("0x" + (trimRight (trimLeft header)))) ) catch ()
-        if payloadLen == undefined or payloadLen <= 0 do
-        (
-            writer.WriteLine "ERROR:bad_length"
-            _closeClient clientSocket writer
-            return undefined
-        )
-
-        -- Read payload byte-by-byte (avoids .NET array creation issues)
-        local code = ""
-        for i = 1 to payloadLen do
-        (
-            local b = netStream.ReadByte() as integer
-            if b == undefined or b < 0 do exit
-            local ch = bit.intAsChar b
-            if ch != undefined do code += ch
-        )
-        if code == undefined do code = ""
 
         writer.WriteLine "OK"
         _closeClient clientSocket writer

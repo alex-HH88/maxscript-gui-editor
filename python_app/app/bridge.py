@@ -55,12 +55,12 @@ def _send_blocking(code: str, cfg: BridgeConfig) -> str:
     Returns the response string from Max ("OK" or "ERROR:...").
     Raises BridgeError on connection / protocol failure.
     """
-    payload = code.encode("utf-8")
-    length_header = f"{len(payload):08X}\n".encode("ascii")
+    # Protocol: send code lines + terminator; MAXScript reads until "--END_CODE--"
+    packet = code.replace("\r\n", "\n").replace("\r", "\n") + "\n--END_CODE--\n"
 
     try:
         with socket.create_connection((cfg.host, cfg.port), timeout=cfg.timeout) as sock:
-            sock.sendall(length_header + payload)
+            sock.sendall(packet.encode("utf-8"))
             # read response (up to 1 KB)
             response = b""
             while True:
