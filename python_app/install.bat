@@ -75,33 +75,39 @@ set LAUNCHER=%INSTALL_DIR%\launch.bat
     echo "%VENV%\Scripts\pythonw.exe" main.py
 ) > "%LAUNCHER%"
 
-:: --- Desktop shortcut via PowerShell ---
+:: --- Desktop shortcut via PowerShell (temp .ps1 to avoid ^ issues) ---
 echo  Creating desktop shortcut...
 set SHORTCUT=%USERPROFILE%\Desktop\MAXScript GUI Editor.lnk
-powershell -NoProfile -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; ^
-   $s  = $ws.CreateShortcut('%SHORTCUT%'); ^
-   $s.TargetPath  = '%VENV%\Scripts\pythonw.exe'; ^
-   $s.Arguments   = 'main.py'; ^
-   $s.WorkingDirectory = '%INSTALL_DIR%'; ^
-   $s.Description = 'MAXScript GUI Editor'; ^
-   $s.Save()"
+set SM=%APPDATA%\Microsoft\Windows\Start Menu\Programs\MAXScript GUI Editor.lnk
+set PS_TMP=%TEMP%\mge_shortcut.ps1
+
+(
+    echo $pyexe  = '%VENV%\Scripts\pythonw.exe'
+    echo $workdir = '%INSTALL_DIR%'
+    echo $ws = New-Object -ComObject WScript.Shell
+    echo $s = $ws.CreateShortcut('%SHORTCUT%'^)
+    echo $s.TargetPath = $pyexe
+    echo $s.Arguments = 'main.py'
+    echo $s.WorkingDirectory = $workdir
+    echo $s.Description = 'MAXScript GUI Editor'
+    echo $s.Save(^)
+    echo $s2 = $ws.CreateShortcut('%SM%'^)
+    echo $s2.TargetPath = $pyexe
+    echo $s2.Arguments = 'main.py'
+    echo $s2.WorkingDirectory = $workdir
+    echo $s2.Description = 'MAXScript GUI Editor'
+    echo $s2.Save(^)
+) > "%PS_TMP%"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_TMP%" >nul 2>&1
+del "%PS_TMP%" >nul 2>&1
+
 if exist "%SHORTCUT%" (
     echo  [OK] Desktop shortcut created.
 ) else (
-    echo  [WARN] Shortcut could not be created ^(no admin needed, check PowerShell policy^).
+    echo  [WARN] Shortcut could not be created - you can still launch via:
+    echo         "%INSTALL_DIR%\launch.bat"
 )
-
-:: --- Start Menu shortcut ---
-set SM=%APPDATA%\Microsoft\Windows\Start Menu\Programs\MAXScript GUI Editor.lnk
-powershell -NoProfile -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; ^
-   $s  = $ws.CreateShortcut('%SM%'); ^
-   $s.TargetPath  = '%VENV%\Scripts\pythonw.exe'; ^
-   $s.Arguments   = 'main.py'; ^
-   $s.WorkingDirectory = '%INSTALL_DIR%'; ^
-   $s.Description = 'MAXScript GUI Editor'; ^
-   $s.Save()" >nul 2>&1
 
 echo.
 echo  =============================================
