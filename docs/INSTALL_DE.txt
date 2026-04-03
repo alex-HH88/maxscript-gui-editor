@@ -1,0 +1,45 @@
+MAXScript GUI Editor v1.00
+==========================
+Visueller Rollout- / MacroScript-Designer für 3ds Max
+------------------------------------------------------
+
+VORAUSSETZUNGEN
+  - 3ds Max 2022 oder neuer
+
+INSTALLATION
+  1. ZIP in einen beliebigen Ordner entpacken.
+  2. In 3ds Max den MAXScript Listener öffnen (Menü Scripting > MAXScript Listener).
+  3. Die Datei  installer-<version>.ms  auf den 3ds Max Viewport ziehen
+     — ODER — über  Scripting > Run Script  öffnen.
+  4. Der Installer kopiert das Tool in den Ordner für Benutzer-Skripte und
+     registriert es als MacroScript in der Kategorie "Tools".
+  5. Bestätigungsdialog schließen.
+
+TOOLBAR-SCHALTFLÄCHE HINZUFÜGEN
+  - Customize > Customize User Interface > Tab "Toolbars"
+  - Kategorie: Tools
+  - "MAXScript GUI Editor" auf eine beliebige Toolbar ziehen.
+
+  Alternativ im Tab "Keyboard" ein Tastaturkürzel vergeben.
+
+ERSTER START
+  - Toolbar-Button klicken (oder Tastaturkürzel drücken).
+  - Der Editor öffnet sich als schwebendes Fenster.
+  - Links mit den "Add Control"-Buttons Steuerelemente hinzufügen.
+  - Rechts die Eigenschaften jedes Controls bearbeiten.
+  - Im Panel "Save/Load" auf "Generate Code" klicken, um den fertigen
+    MAXScript-Code in die Zwischenablage zu kopieren.
+
+SPEICHERN / LADEN
+  - "Save Layout"  speichert das aktuelle Design als  .dat-Datei.
+  - "Load Layout"  lädt ein gespeichertes Design.
+  - "Import Code"  liest vorhandenen MAXScript-Rollout-Code ein und lädt
+    ihn in den Editor (Basis-Parser; komplexe Ausdrücke ggf. manuell anpassen).
+
+DEINSTALLATION
+  - Ordner löschen:
+      %LOCALAPPDATA%\Autodesk\3dsMax\<version>\ENU\scripts\MAXScriptGUIEditor\
+  - Toolbar-Button entfernen via  Customize > Customize User Interface.
+
+SUPPORT / QUELLCODE
+  https://github.com/alex-HH88/maxscript-gui-editor
