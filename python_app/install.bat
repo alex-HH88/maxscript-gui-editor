@@ -59,8 +59,8 @@ if not exist "%VENV%\Scripts\activate.bat" (
 
 :: --- Install PySide6 ---
 echo  Installing PySide6 (this may take a minute)...
-"%VENV%\Scripts\pip.exe" install --upgrade pip -q
-"%VENV%\Scripts\pip.exe" install -r "%INSTALL_DIR%\requirements.txt" -q
+"%VENV%\Scripts\python.exe" -m pip install --upgrade pip -q
+"%VENV%\Scripts\python.exe" -m pip install -r "%INSTALL_DIR%\requirements.txt" -q
 if errorlevel 1 (
     echo [ERROR] pip install failed. Check internet connection.
     pause & exit /b 1
