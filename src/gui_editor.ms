@@ -9,7 +9,7 @@
 -- SECTION 1: VERSION & COMPATIBILITY
 -- ==============================================================
 
-global TOOLS_VERSION = "1.01"
+global TOOLS_VERSION = "1.02"
 
 if (maxVersion())[1] / 1000 < 24 do
 (
