@@ -179,6 +179,9 @@ fn listenerLoop listener =
     format "Bridge listener stopped.\n"
 )
 
+-- Top-level entry point for the background thread (no closure needed)
+fn _bridgeLoopFn = ( listenerLoop _bridgeListener )
+
 -- -----------------------------------------------------------------------
 -- Public API
 -- -----------------------------------------------------------------------
@@ -206,8 +209,7 @@ fn startBridgeListener =
     _bridgeListener.Start()
 
     _bridgeThread = dotNetObject "System.Threading.Thread" \
-        (dotNetDelegate "System.Threading.ThreadStart" \
-            (fn _loop = ( listenerLoop _bridgeListener )))
+        (dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn)
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
 
