@@ -5,7 +5,7 @@ Each ControlModel is represented as a ControlItem (QGraphicsItem).
 from __future__ import annotations
 from typing import Optional, Callable
 
-from PySide6.QtCore import Qt, QRectF, QPointF, QSizeF, Signal, QObject
+from PySide6.QtCore import Qt, QRectF, QPointF, QSizeF, Signal, QObject, QEvent
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QBrush, QFont, QFontMetrics, QDragEnterEvent,
     QDropEvent, QMouseEvent,
@@ -342,21 +342,25 @@ class RolloutCanvas(QGraphicsView):
     # ------------------------------------------------------------------
     # Keyboard: arrow-key nudge + Tab navigation
     # ------------------------------------------------------------------
+    def event(self, event):
+        # Tab is consumed by Qt's focus chain before keyPressEvent — intercept here
+        if event.type() == QEvent.KeyPress:
+            key = event.key()
+            if key in (Qt.Key_Tab, Qt.Key_Backtab):
+                self._handle_tab(event)
+                return True
+        return super().event(event)
+
     def keyPressEvent(self, event):
         key = event.key()
         ctrl = event.modifiers() & Qt.ControlModifier
 
-        # --- Arrow key nudge ---
         step = 1 if ctrl else 10
         dx, dy = 0, 0
-        if key == Qt.Key_Left:
-            dx = -step
-        elif key == Qt.Key_Right:
-            dx = step
-        elif key == Qt.Key_Up:
-            dy = -step
-        elif key == Qt.Key_Down:
-            dy = step
+        if key == Qt.Key_Left:   dx = -step
+        elif key == Qt.Key_Right: dx = step
+        elif key == Qt.Key_Up:   dy = -step
+        elif key == Qt.Key_Down: dy = step
 
         if dx or dy:
             sel = [i for i in self.scene().selectedItems() if isinstance(i, ControlItem)]
@@ -371,27 +375,25 @@ class RolloutCanvas(QGraphicsView):
                 self._on_move_finished()
             return
 
-        # --- Tab / Shift+Tab: cycle selection ---
-        if key == Qt.Key_Tab or key == Qt.Key_Backtab:
-            if self._model is None or not self._model.controls:
-                return
-            ctrls = self._model.controls
-            sel = [i for i in self.scene().selectedItems() if isinstance(i, ControlItem)]
-            if not sel:
-                target = ctrls[0]
-            else:
-                cur = sel[0].model
-                idx = ctrls.index(cur) if cur in ctrls else 0
-                if key == Qt.Key_Backtab or (event.modifiers() & Qt.ShiftModifier):
-                    idx = (idx - 1) % len(ctrls)
-                else:
-                    idx = (idx + 1) % len(ctrls)
-                target = ctrls[idx]
-            self.select_control(target)
-            self.signals.control_selected.emit(target)
-            return
-
         super().keyPressEvent(event)
+
+    def _handle_tab(self, event):
+        if self._model is None or not self._model.controls:
+            return
+        ctrls = self._model.controls
+        sel = [i for i in self.scene().selectedItems() if isinstance(i, ControlItem)]
+        if not sel:
+            target = ctrls[0]
+        else:
+            cur = sel[0].model
+            idx = ctrls.index(cur) if cur in ctrls else 0
+            if event.key() == Qt.Key_Backtab or (event.modifiers() & Qt.ShiftModifier):
+                idx = (idx - 1) % len(ctrls)
+            else:
+                idx = (idx + 1) % len(ctrls)
+            target = ctrls[idx]
+        self.select_control(target)
+        self.signals.control_selected.emit(target)
 
     # ------------------------------------------------------------------
     def _on_selection_changed(self):
