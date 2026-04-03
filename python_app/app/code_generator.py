@@ -77,8 +77,8 @@ def _build_control(c: ControlModel, indent: str = "\t") -> str:
             pass
 
     elif ct == "radiobuttons":
-        if c.labels:
-            params.append(f"labels:{_arr(c.labels)}")
+        labels = c.labels if c.labels else ["Option 1", "Option 2"]
+        params.append(f"labels:{_arr(labels)}")
         if c.columns > 1:
             params.append(f"columns:{c.columns}")
 
