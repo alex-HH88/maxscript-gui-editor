@@ -9,8 +9,9 @@
 
 global BRIDGE_VERSION = "1.15"
 global BRIDGE_PORT    = 27120
-global _bridgeThread  = undefined
-global _bridgeRunning = false
+global _bridgeThread   = undefined
+global _bridgeListener = undefined
+global _bridgeRunning  = false
 
 -- -----------------------------------------------------------------------
 -- Protocol handler (runs on a background .NET thread)
@@ -201,12 +202,12 @@ fn startBridgeListener =
 
     local ipAny      = (dotNetClass "System.Net.IPAddress").Any
     local endpoint   = dotNetObject "System.Net.IPEndPoint" ipAny BRIDGE_PORT
-    local listener   = dotNetObject "System.Net.Sockets.TcpListener" endpoint
-    listener.Start()
+    _bridgeListener  = dotNetObject "System.Net.Sockets.TcpListener" endpoint
+    _bridgeListener.Start()
 
     _bridgeThread = dotNetObject "System.Threading.Thread" \
         (dotNetDelegate "System.Threading.ThreadStart" \
-            (fn _loop = ( listenerLoop listener )))
+            (fn _loop = ( listenerLoop _bridgeListener )))
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
 
