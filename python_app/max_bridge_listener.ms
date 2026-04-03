@@ -203,13 +203,17 @@ fn startBridgeListener =
     _bridgePendingCode = #()
     _bridgeRunning     = true
 
+    -- Stop any previous listener still holding the port
+    try ( if _bridgeListener != undefined do _bridgeListener.Stop() ) catch ()
+    _bridgeListener = undefined
+
     local ipAny      = (dotNetClass "System.Net.IPAddress").Any
     local endpoint   = dotNetObject "System.Net.IPEndPoint" ipAny BRIDGE_PORT
     _bridgeListener  = dotNetObject "System.Net.Sockets.TcpListener" endpoint
     _bridgeListener.Start()
 
-    _bridgeThread = dotNetObject "System.Threading.Thread" \
-        (dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn)
+    local tsDelegate = dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn
+    _bridgeThread = dotNetObject "System.Threading.Thread" tsDelegate
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
 
