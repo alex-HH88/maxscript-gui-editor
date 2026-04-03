@@ -530,6 +530,20 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # .ms round-trip import / export
     # ------------------------------------------------------------------
+    # Known MAXScript standard radiobuttons labels (fixed, never change)
+    # ------------------------------------------------------------------
+    _KNOWN_RADIOBUTTONS: dict[str, list[str]] = {
+        # 3ds Max Time Output (Render Settings)
+        "rad_timeoutput":  ["Single Frame", "Active Time Segment", "Range", "Frames"],
+        "rad_timeOutput":  ["Single Frame", "Active Time Segment", "Range", "Frames"],
+        "rad_time":        ["Single Frame", "Active Time Segment", "Range", "Frames"],
+        # 3ds Max Area to Render (Render Settings)
+        "rad_renderarea":  ["View", "Selected", "Region", "Blowup", "Box"],
+        "rad_renderArea":  ["View", "Selected", "Region", "Blowup", "Box"],
+        "rad_area":        ["View", "Selected", "Region", "Blowup", "Box"],
+    }
+
+    # ------------------------------------------------------------------
     # Patch dynamic control properties from on-open handler bodies
     # ------------------------------------------------------------------
     @staticmethod
@@ -581,6 +595,15 @@ class MainWindow(QMainWindow):
             _apply(body_code)
         for raw in seg.orphaned_events:
             _apply(raw)
+
+        # Apply known standard labels for radiobuttons that are still empty
+        known = MainWindow._KNOWN_RADIOBUTTONS
+        for c in seg.model.controls:
+            if c.control_type == "radiobuttons" and not c.labels:
+                # try exact name, then lowercase match
+                labels = known.get(c.name) or known.get(c.name.lower())
+                if labels:
+                    c.labels = labels
 
     def _open_ms(self):
         if not self._confirm_discard():
