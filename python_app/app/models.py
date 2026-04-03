@@ -3,7 +3,7 @@ from __future__ import annotations
 Data models for the MAXScript GUI Editor.
 All models are JSON-serializable dataclasses.
 """
-APP_VERSION = "1.15"
+APP_VERSION = "1.16"
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 import copy

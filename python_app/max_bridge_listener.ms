@@ -7,6 +7,7 @@
  * Stop:  call stopBridgeListener() in the MAXScript Listener
  */
 
+global BRIDGE_VERSION = "1.15"
 global BRIDGE_PORT    = 27120
 global _bridgeThread  = undefined
 global _bridgeRunning = false
@@ -213,7 +214,7 @@ fn startBridgeListener =
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
 
-    format "=== MAXScript Bridge Listener started on port % ===\n" BRIDGE_PORT
+    format "=== MAXScript GUI Editor Bridge Listener v% started on port % ===\n" BRIDGE_VERSION BRIDGE_PORT
     format "    Stop with: stopBridgeListener()\n"
 )
 

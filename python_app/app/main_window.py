@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from .bridge import MaxBridge, BridgeConfig
-from .models import RolloutModel, ControlModel, CONTROL_TYPES, CONTROL_DEFAULTS
+from .models import RolloutModel, ControlModel, CONTROL_TYPES, CONTROL_DEFAULTS, APP_VERSION
 from .canvas import RolloutCanvas
 from .properties_panel import PropertiesPanel
 from .code_generator import generate_code
@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MAXScript GUI Editor")
+        self.setWindowTitle(f"MAXScript GUI Editor v{APP_VERSION}")
         self.resize(1280, 780)
         self.setStyleSheet(_STYLE)
 
@@ -712,7 +712,7 @@ class MainWindow(QMainWindow):
     def _update_title(self):
         name = self._current_file.name if self._current_file else "Untitled"
         dirty = " *" if self._dirty else ""
-        self.setWindowTitle(f"MAXScript GUI Editor — {name}{dirty}")
+        self.setWindowTitle(f"MAXScript GUI Editor v{APP_VERSION} — {name}{dirty}")
 
 
 # ---------------------------------------------------------------------------
