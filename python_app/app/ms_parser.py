@@ -1,51 +1,60 @@
 """
-MAXScript .ms file parser — round-trip safe.
+MAXScript .ms file parser — round-trip safe, multi-rollout.
 
-Strategy
---------
-The file is split into three zones:
-  pre_rollout   — everything before the rollout block (untouched)
-  rollout_body  — the rollout block itself (controls parsed, event bodies preserved)
-  post_rollout  — everything after the rollout block (untouched)
+The file is split into alternating segments:
+  TextSegment    — verbatim text (globals, functions, macroScript wrapper, …)
+  RolloutSegment — one parsed rollout block (controls editable, event bodies preserved)
 
-Only control DECLARATION lines are read into the model.
-Event handler DO-bodies are stored verbatim and written back unchanged.
-All other code (globals, functions, macroScript wrapper, comments) is preserved.
+When writing back, TextSegments are reproduced verbatim and RolloutSegments
+are regenerated from their models.  Event handler DO-bodies are always taken
+from the original source, so logic code is never touched.
 """
 from __future__ import annotations
 import re
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Union
 
 from .models import RolloutModel, ControlModel, EventHandler, CONTROL_TYPES
 
 
 # ---------------------------------------------------------------------------
-# Result container
+# Segment types
 # ---------------------------------------------------------------------------
 @dataclass
-class ParsedMS:
-    """
-    Round-trip container for a .ms file.
-    Only the rollout block is touched; everything else is preserved verbatim.
-    """
-    pre_rollout: str = ""          # text before  'rollout XYZ ...'
-    post_rollout: str = ""         # text after closing ')' of the rollout
-    rollout_indent: str = ""       # leading whitespace of the rollout line
-    model: RolloutModel = field(default_factory=RolloutModel)
-    # Raw event-handler bodies keyed by (ctrl_name, event)
-    # e.g. ("btn_ok", "pressed") -> "    doSomething()\n"
+class TextSegment:
+    text: str
+
+
+@dataclass
+class RolloutSegment:
+    model: RolloutModel
+    rollout_indent: str = ""
+    # Raw event-handler bodies: (ctrl_name, event) -> raw code string
     event_bodies: dict[tuple[str, str], str] = field(default_factory=dict)
-    # Lines inside the rollout that are NOT control decls or event handlers
-    # (comments, local vars, etc.) — stored with their position index so we
-    # can interleave them when writing back.
-    # List of (line_index_in_rollout_body, raw_line_str)
-    extra_lines: list[tuple[int, str]] = field(default_factory=list)
+    # Non-control, non-event lines inside the rollout body (comments, locals)
+    extra_lines: list[str] = field(default_factory=list)
     parse_warnings: list[str] = field(default_factory=list)
 
 
+# Top-level parsed file
+@dataclass
+class ParsedMS:
+    segments: list[Union[TextSegment, RolloutSegment]] = field(default_factory=list)
+    parse_warnings: list[str] = field(default_factory=list)
+
+    @property
+    def rollout_segments(self) -> list[RolloutSegment]:
+        return [s for s in self.segments if isinstance(s, RolloutSegment)]
+
+    def get_rollout(self, name: str) -> RolloutSegment | None:
+        for s in self.rollout_segments:
+            if s.model.rollout_name == name:
+                return s
+        return None
+
+
 # ---------------------------------------------------------------------------
-# Parameter tokenizer helpers
+# Low-level helpers
 # ---------------------------------------------------------------------------
 _CTRL_TYPE_RE = re.compile(
     r'^\s*(' + '|'.join(re.escape(t) for t in CONTROL_TYPES) + r')\s+(\w+)(.*)',
@@ -69,7 +78,6 @@ def _unquote(s: str) -> str:
 
 
 def _parse_array(s: str) -> list[str]:
-    """Parse  #("a","b","c")  or  #(1,2,3)  into a list of strings."""
     m = re.match(r'#\((.*)\)', s.strip(), re.DOTALL)
     if not m:
         return []
@@ -100,32 +108,9 @@ def _parse_vec3(s: str) -> tuple[float, float, float]:
     return 0.0, 100.0, 0.0
 
 
-def _parse_params(param_str: str) -> dict[str, str]:
-    """
-    Tokenize  key:value  pairs from a parameter string.
-    Handles nested brackets  [...]  and  #(...)  as single values.
-    Returns dict of lowercase-key → raw-value-string.
-    """
-    result: dict[str, str] = {}
-    s = param_str.strip()
-    while s:
-        # find next key:
-        km = re.match(r'(\w+)\s*:', s)
-        if not km:
-            break
-        key = km.group(1).lower()
-        s = s[km.end():].lstrip()
-        # collect value until next bare key: or end
-        val, s = _consume_value(s)
-        result[key] = val.strip()
-    return result
-
-
 def _consume_value(s: str) -> tuple[str, str]:
-    """Consume one value token from the start of s, return (value, remainder)."""
     if not s:
         return '', ''
-    # quoted string
     if s[0] == '"':
         end = 1
         while end < len(s):
@@ -137,7 +122,6 @@ def _consume_value(s: str) -> tuple[str, str]:
                 break
             end += 1
         return s[:end], s[end:].lstrip()
-    # #(...) array
     if s.startswith('#('):
         depth = 0
         for i, c in enumerate(s):
@@ -148,24 +132,34 @@ def _consume_value(s: str) -> tuple[str, str]:
                 if depth == 0:
                     return s[:i+1], s[i+1:].lstrip()
         return s, ''
-    # #name  (symbol like #float, #left)
     if s.startswith('#'):
         m = re.match(r'(#\w+)', s)
         if m:
             return m.group(1), s[m.end():].lstrip()
-    # [...] vector
     if s[0] == '[':
         end = s.index(']') + 1 if ']' in s else len(s)
         return s[:end], s[end:].lstrip()
-    # plain token (number, bool, word)
     m = re.match(r'([^\s:,]+)', s)
     if m:
         return m.group(1), s[m.end():].lstrip()
     return s, ''
 
 
+def _parse_params(param_str: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    s = param_str.strip()
+    while s:
+        km = re.match(r'(\w+)\s*:', s)
+        if not km:
+            break
+        key = km.group(1).lower()
+        s = s[km.end():].lstrip()
+        val, s = _consume_value(s)
+        result[key] = val.strip()
+    return result
+
+
 def _apply_params(ctrl: ControlModel, params: dict[str, str]) -> None:
-    """Write parsed parameter dict into a ControlModel."""
     for key, val in params.items():
         vl = val.lower()
         if key == 'pos':
@@ -174,14 +168,12 @@ def _apply_params(ctrl: ControlModel, params: dict[str, str]) -> None:
             ctrl.use_pos = True
         elif key == 'width':
             try:
-                ctrl.width = int(float(val))
-                ctrl.use_width = True
+                ctrl.width = int(float(val)); ctrl.use_width = True
             except ValueError:
                 pass
         elif key == 'height':
             try:
-                ctrl.height = int(float(val))
-                ctrl.use_height = True
+                ctrl.height = int(float(val)); ctrl.use_height = True
             except ValueError:
                 pass
         elif key == 'offset':
@@ -251,144 +243,70 @@ def _apply_params(ctrl: ControlModel, params: dict[str, str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Block collector — reads lines until matching closing paren
+# Rollout body parser
 # ---------------------------------------------------------------------------
-def _collect_block(lines: list[str], start: int) -> tuple[list[str], int]:
+def _parse_rollout_body(
+    lines: list[str],
+    body_start: int,
+    body_end: int,
+) -> tuple[list[ControlModel], dict[tuple[str,str], str], list[str], list[str]]:
     """
-    Starting from start (the line containing the opening '('),
-    collect lines until the matching ')'.  Returns (body_lines, next_idx).
+    Parse lines[body_start:body_end] as the content of a rollout block.
+    Returns (controls, event_bodies, extra_lines, warnings).
     """
-    depth = 0
-    body: list[str] = []
-    i = start
-    while i < len(lines):
-        line = lines[i]
-        depth += line.count('(') - line.count(')')
-        body.append(line)
-        i += 1
-        if depth <= 0:
-            break
-    return body, i
+    controls: list[ControlModel] = []
+    event_bodies: dict[tuple[str, str], str] = {}
+    extra_lines: list[str] = []
+    warnings: list[str] = []
 
-
-# ---------------------------------------------------------------------------
-# Main parser
-# ---------------------------------------------------------------------------
-def parse_ms_file(path: str) -> ParsedMS:
-    with open(path, 'r', encoding='utf-8', errors='replace') as f:
-        text = f.read()
-
-    lines = text.splitlines(keepends=True)
-    result = ParsedMS()
-
-    # --- 1. Locate the rollout block ---
-    rollout_start = -1
-    for i, line in enumerate(lines):
-        m = _ROLLOUT_RE.match(line)
-        if m:
-            rollout_start = i
-            result.rollout_indent = m.group(1)
-            result.model.rollout_name = m.group(2)
-            result.model.rollout_title = m.group(3)
-            # parse rollout-level params (width, pos, height)
-            extra = m.group(4)
-            rp = _parse_params(extra)
-            if 'width' in rp:
-                try:
-                    result.model.width = int(float(rp['width']))
-                except ValueError:
-                    pass
-            if 'height' in rp:
-                try:
-                    result.model.height = int(float(rp['height']))
-                    result.model.use_height = True
-                except ValueError:
-                    pass
-            if 'pos' in rp:
-                x, y = _parse_vec2(rp['pos'])
-                result.model.pos_x, result.model.pos_y = int(x), int(y)
-                result.model.use_pos = True
-            break
-
-    if rollout_start == -1:
-        result.parse_warnings.append("No rollout block found in file.")
-        result.pre_rollout = text
-        return result
-
-    result.pre_rollout = ''.join(lines[:rollout_start])
-
-    # --- 2. Find the rollout body block ---
-    # The opening '(' is either on the rollout line or the next line
-    body_start = rollout_start + 1
-    # Find the line with opening paren
-    open_line = rollout_start
-    if '(' not in lines[rollout_start]:
-        for j in range(rollout_start + 1, min(rollout_start + 3, len(lines))):
-            if '(' in lines[j]:
-                open_line = j
-                body_start = j + 1
-                break
-    else:
-        body_start = rollout_start + 1
-
-    # Collect until matching close paren
-    depth = 0
-    rollout_end = body_start
-    for i in range(open_line, len(lines)):
-        depth += lines[i].count('(') - lines[i].count(')')
-        if i >= body_start and depth <= 0:
-            rollout_end = i + 1
-            break
-
-    result.post_rollout = ''.join(lines[rollout_end:])
-    body_lines = lines[body_start:rollout_end - 1]  # exclude closing ')'
-
-    # --- 3. Parse body lines ---
+    body = lines[body_start:body_end]
     i = 0
-    line_idx = 0
-    while i < len(body_lines):
-        raw = body_lines[i]
+    while i < len(body):
+        raw = body[i]
         stripped = raw.strip()
 
-        # skip blank lines and comments
         if not stripped or stripped.startswith('--'):
-            result.extra_lines.append((line_idx, raw))
+            extra_lines.append(raw)
             i += 1
-            line_idx += 1
             continue
 
-        # event handler:  on <ctrl> <event> [args] do
+        # event handler
         on_m = _ON_RE.match(raw)
         if on_m:
             ctrl_name = on_m.group(1)
             event_name = on_m.group(2)
             args_str = on_m.group(3).strip()
             i += 1
-            # collect the DO body
-            if i < len(body_lines) and body_lines[i].strip() == '(':
-                body_block, consumed = _collect_block(body_lines, i)
-                body_code = ''.join(body_block)
-                i += consumed - i  # _collect_block already advances
-            elif i < len(body_lines):
-                # single-line body without parens
-                body_code = body_lines[i]
+            # collect body
+            if i < len(body) and body[i].strip() == '(':
+                # multi-line block
+                depth = 0
+                block: list[str] = []
+                while i < len(body):
+                    line = body[i]
+                    depth += line.count('(') - line.count(')')
+                    block.append(line)
+                    i += 1
+                    if depth <= 0:
+                        break
+                body_code = ''.join(block)
+            elif i < len(body):
+                body_code = body[i]
                 i += 1
             else:
                 body_code = ''
-            # attach to existing control model or store orphan
-            result.event_bodies[(ctrl_name, event_name)] = body_code
-            # find matching control and add EventHandler
-            for ctrl in result.model.controls:
+
+            event_bodies[(ctrl_name, event_name)] = body_code
+            for ctrl in controls:
                 if ctrl.name == ctrl_name:
-                    eh = EventHandler(event=event_name, args=args_str,
-                                      code=body_code)
-                    ctrl.event_handlers.append(eh)
+                    ctrl.event_handlers.append(
+                        EventHandler(event=event_name, args=args_str, code=body_code)
+                    )
                     break
             else:
-                result.parse_warnings.append(
-                    f"Event handler 'on {ctrl_name} {event_name}' has no matching control."
+                warnings.append(
+                    f"Event 'on {ctrl_name} {event_name}' has no matching control declaration."
                 )
-            line_idx += 1
             continue
 
         # control declaration
@@ -398,22 +316,113 @@ def parse_ms_file(path: str) -> ParsedMS:
             cname = ctrl_m.group(2)
             rest = ctrl_m.group(3).strip()
             ctrl = ControlModel(control_type=ct, name=cname)
-            # first token of rest may be the label (quoted string)
             if rest.startswith('"'):
                 lm = re.match(r'"((?:[^"\\]|\\.)*)"(.*)', rest)
                 if lm:
                     ctrl.label = lm.group(1)
                     rest = lm.group(2).strip()
-            params = _parse_params(rest)
-            _apply_params(ctrl, params)
-            result.model.controls.append(ctrl)
+            _apply_params(ctrl, _parse_params(rest))
+            controls.append(ctrl)
             i += 1
-            line_idx += 1
             continue
 
-        # anything else — preserve verbatim
-        result.extra_lines.append((line_idx, raw))
+        extra_lines.append(raw)
         i += 1
-        line_idx += 1
+
+    return controls, event_bodies, extra_lines, warnings
+
+
+# ---------------------------------------------------------------------------
+# Main file scanner — finds all rollout blocks
+# ---------------------------------------------------------------------------
+def parse_ms_file(path: str) -> ParsedMS:
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        text = f.read()
+
+    lines = text.splitlines(keepends=True)
+    result = ParsedMS()
+    i = 0
+    text_buf: list[str] = []
+
+    while i < len(lines):
+        line = lines[i]
+        m = _ROLLOUT_RE.match(line)
+
+        if not m:
+            text_buf.append(line)
+            i += 1
+            continue
+
+        # --- Found a rollout ---
+        # flush accumulated text
+        if text_buf:
+            result.segments.append(TextSegment(''.join(text_buf)))
+            text_buf = []
+
+        indent = m.group(1)
+        rname  = m.group(2)
+        rtitle = m.group(3)
+        rparams = _parse_params(m.group(4))
+
+        model = RolloutModel(rollout_name=rname, rollout_title=rtitle)
+        if 'width' in rparams:
+            try:
+                model.width = int(float(rparams['width']))
+            except ValueError:
+                pass
+        if 'height' in rparams:
+            try:
+                model.height = int(float(rparams['height']))
+                model.use_height = True
+            except ValueError:
+                pass
+        if 'pos' in rparams:
+            x, y = _parse_vec2(rparams['pos'])
+            model.pos_x, model.pos_y = int(x), int(y)
+            model.use_pos = True
+
+        # find opening paren
+        open_idx = i
+        if '(' not in line:
+            for j in range(i + 1, min(i + 3, len(lines))):
+                if '(' in lines[j]:
+                    open_idx = j
+                    break
+
+        body_start = open_idx + 1
+
+        # scan for matching close paren
+        depth = 0
+        rollout_end = body_start
+        for k in range(open_idx, len(lines)):
+            depth += lines[k].count('(') - lines[k].count(')')
+            if k >= body_start and depth <= 0:
+                rollout_end = k
+                break
+
+        # parse body
+        controls, event_bodies, extra_lines, warnings = _parse_rollout_body(
+            lines, body_start, rollout_end
+        )
+        model.controls = controls
+
+        seg = RolloutSegment(
+            model=model,
+            rollout_indent=indent,
+            event_bodies=event_bodies,
+            extra_lines=extra_lines,
+            parse_warnings=warnings,
+        )
+        result.segments.append(seg)
+        result.parse_warnings.extend(warnings)
+
+        # closing ')' line + newline after
+        i = rollout_end + 1
+
+    if text_buf:
+        result.segments.append(TextSegment(''.join(text_buf)))
+
+    if not result.rollout_segments:
+        result.parse_warnings.append("No rollout blocks found in file.")
 
     return result

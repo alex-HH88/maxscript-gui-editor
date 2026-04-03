@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QToolBar, QPushButton, QLabel, QListWidget, QListWidgetItem,
     QTextEdit, QFileDialog, QMessageBox, QStatusBar, QGroupBox,
     QSizePolicy, QApplication, QDialog, QFormLayout, QLineEdit,
-    QSpinBox, QCheckBox, QDialogButtonBox, QDoubleSpinBox,
+    QSpinBox, QCheckBox, QDialogButtonBox, QDoubleSpinBox, QComboBox,
 )
 
 from .bridge import MaxBridge, BridgeConfig
@@ -321,6 +321,18 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction("▶ Send to Max",  self._send_to_max)
         tb.addAction("Bridge…",        self._bridge_settings)
+        tb.addSeparator()
+        # Rollout picker — visible only when a .ms file with multiple rollouts is open
+        self._tb_rollout_label = QLabel("  Rollout: ")
+        self._tb_rollout_label.setStyleSheet("color:#888888;")
+        tb.addWidget(self._tb_rollout_label)
+        self._tb_rollout_picker = QComboBox()
+        self._tb_rollout_picker.setMinimumWidth(180)
+        self._tb_rollout_picker.setToolTip("Switch between rollout blocks in the loaded .ms file")
+        self._tb_rollout_picker.currentIndexChanged.connect(self._on_rollout_picked)
+        tb.addWidget(self._tb_rollout_picker)
+        self._tb_rollout_label.setVisible(False)
+        self._tb_rollout_picker.setVisible(False)
 
     # ------------------------------------------------------------------
     # Undo / Redo
@@ -453,6 +465,9 @@ class MainWindow(QMainWindow):
         self._parsed_ms = None
         self._undo_stack.clear()
         self._redo_stack.clear()
+        self._tb_rollout_picker.setVisible(False)
+        self._tb_rollout_label.setVisible(False)
+        self._tb_rollout_picker.clear()
         self._reload_all()
         self._code_out.clear()
         self._status.showMessage("New layout created.")
@@ -514,53 +529,89 @@ class MainWindow(QMainWindow):
             return
         try:
             parsed = parse_ms_file(path)
-            if not parsed.model.controls and not parsed.parse_warnings:
+            segs = parsed.rollout_segments
+            if not segs:
                 QMessageBox.warning(self, "Open .ms",
-                    "No rollout block or controls found in this file.\n"
+                    "No rollout blocks found in this file.\n"
                     "The file may use dynamic control creation which cannot be parsed.")
                 return
 
             self._parsed_ms = parsed
-            self._model = parsed.model
             self._current_file = Path(path)
             self._dirty = False
             self._undo_stack.clear()
             self._redo_stack.clear()
-            self._reload_all()
 
-            msg = f"Opened: {Path(path).name}  —  {len(parsed.model.controls)} controls"
+            # populate rollout picker
+            self._tb_rollout_picker.blockSignals(True)
+            self._tb_rollout_picker.clear()
+            for seg in segs:
+                label = f"{seg.model.rollout_name}  ({len(seg.model.controls)} controls)"
+                self._tb_rollout_picker.addItem(label)
+            self._tb_rollout_picker.blockSignals(False)
+
+            show_picker = len(segs) > 1
+            self._tb_rollout_label.setVisible(show_picker)
+            self._tb_rollout_picker.setVisible(show_picker)
+
+            # load first rollout
+            self._load_rollout_segment(0)
+
             if parsed.parse_warnings:
-                msg += f"  ⚠ {len(parsed.parse_warnings)} warning(s)"
-                detail = "\n".join(parsed.parse_warnings)
-                QMessageBox.information(self, "Parse Warnings", detail)
-            self._status.showMessage(msg)
-            self._update_ms_indicator()
+                QMessageBox.information(self, "Parse Warnings",
+                    "\n".join(parsed.parse_warnings))
         except Exception as e:
             QMessageBox.critical(self, "Open .ms Error", str(e))
+
+    def _load_rollout_segment(self, idx: int):
+        segs = self._parsed_ms.rollout_segments
+        seg = segs[idx]
+        self._model = seg.model
+        self._reload_all()
+        n = len(segs)
+        ctrl_count = len(seg.model.controls)
+        self._status.showMessage(
+            f"{'[.ms]  ' if n == 1 else f'[.ms  {idx+1}/{n}]  '}"
+            f"{seg.model.rollout_name}  ·  {ctrl_count} controls"
+            f"  ·  Ctrl+Shift+M = save all"
+        )
+
+    def _on_rollout_picked(self, idx: int):
+        if self._parsed_ms is None or idx < 0:
+            return
+        # sync current model back before switching
+        self._sync_active_rollout()
+        self._load_rollout_segment(idx)
+
+    def _sync_active_rollout(self):
+        """Write self._model back into the active RolloutSegment."""
+        if self._parsed_ms is None:
+            return
+        idx = self._tb_rollout_picker.currentIndex()
+        segs = self._parsed_ms.rollout_segments
+        if 0 <= idx < len(segs):
+            segs[idx].model = self._model
 
     def _save_ms(self):
         if self._parsed_ms is None:
             QMessageBox.information(self, "Save to .ms",
                 "No .ms file is loaded.\nUse  File > Open .ms File…  first.")
             return
-        # sync model back into parsed object
-        self._parsed_ms.model = self._model
+        # sync currently active rollout
+        self._sync_active_rollout()
         try:
             write_ms_file(self._parsed_ms, str(self._current_file))
             self._dirty = False
             self._update_title()
-            self._status.showMessage(f"Saved .ms: {self._current_file.name}")
+            n = len(self._parsed_ms.rollout_segments)
+            self._status.showMessage(
+                f"Saved .ms: {self._current_file.name}  ·  {n} rollout(s)"
+            )
         except Exception as e:
             QMessageBox.critical(self, "Save .ms Error", str(e))
 
     def _update_ms_indicator(self):
-        """Show a subtle indicator in the status bar when a .ms file is active."""
-        if self._parsed_ms is not None:
-            self._status.showMessage(
-                f"Mode: .ms round-trip  ·  {self._current_file.name if self._current_file else '?'}"
-                f"  ·  {len(self._model.controls)} controls"
-                f"  ·  Ctrl+Shift+M = save back"
-            )
+        pass  # replaced by _load_rollout_segment status message
 
     # ------------------------------------------------------------------
     # Bridge

@@ -1,73 +1,59 @@
 """
-MAXScript .ms file writer — round-trip safe.
+MAXScript .ms file writer — round-trip safe, multi-rollout.
 
-Reconstructs the .ms file from a ParsedMS object:
-  - pre_rollout  → verbatim
-  - rollout block → regenerated control declarations + original event bodies
-  - post_rollout → verbatim
-
-Only control DECLARATION lines change.
-Event handler DO-bodies are written back exactly as read.
-Everything outside the rollout block is untouched.
+Iterates over ParsedMS.segments:
+  TextSegment    → written verbatim
+  RolloutSegment → header + control declarations regenerated from model,
+                   event handler DO-bodies written verbatim from event_bodies
 """
 from __future__ import annotations
-from .ms_parser import ParsedMS
+from .ms_parser import ParsedMS, TextSegment, RolloutSegment
 from .code_generator import _q, _build_control_decl_only
 
 
-def _build_rollout_header(parsed: ParsedMS) -> str:
-    m = parsed.model
-    ind = parsed.rollout_indent
+def _write_rollout_segment(seg: RolloutSegment) -> str:
+    m = seg.model
+    ind = seg.rollout_indent
+    body_ind = ind + "\t"
+    lines: list[str] = []
+
+    # header
     params = [_q(m.rollout_title)]
     if m.use_pos:
         params.append(f"pos:[{m.pos_x},{m.pos_y}]")
     if m.use_height:
         params.append(f"height:{m.height}")
-    return f"{ind}rollout {m.rollout_name} {' '.join(params)}\n{ind}(\n"
+    lines.append(f"{ind}rollout {m.rollout_name} {' '.join(params)}\n")
+    lines.append(f"{ind}(\n")
 
-
-def write_ms_file(parsed: ParsedMS, path: str) -> None:
-    """
-    Write the round-trip .ms file.
-    Control DECLARATIONS are regenerated from the model.
-    Event handler DO-bodies are taken verbatim from parsed.event_bodies.
-    Everything outside the rollout block is written unchanged.
-    """
-    ind = parsed.rollout_indent + "\t"
-    lines: list[str] = []
-
-    # --- pre_rollout verbatim ---
-    lines.append(parsed.pre_rollout)
-
-    # --- rollout header ---
-    lines.append(_build_rollout_header(parsed))
-
-    # --- controls ---
-    for ctrl in parsed.model.controls:
-        # declaration only (no event handlers — those follow separately)
-        decl = _build_control_decl_only(ctrl, indent=ind)
-        lines.append(decl + "\n")
-
-        # event handler blocks — body verbatim from original
+    # controls + their event handlers
+    for ctrl in m.controls:
+        lines.append(_build_control_decl_only(ctrl, indent=body_ind) + "\n")
         for eh in ctrl.event_handlers:
             args_part = f" {eh.args}" if eh.args.strip() else ""
-            lines.append(f"{ind}on {ctrl.name} {eh.event}{args_part} do\n")
-            body = parsed.event_bodies.get((ctrl.name, eh.event), eh.code)
-            # body is the raw text that was after "do" in the original file
-            # it may or may not start with "(" on its own line
+            lines.append(f"{body_ind}on {ctrl.name} {eh.event}{args_part} do\n")
+            body = seg.event_bodies.get((ctrl.name, eh.event), eh.code)
             if not body.endswith('\n'):
                 body += '\n'
             lines.append(body)
 
-    # --- extra lines (comments, locals) ---
-    for _, raw in parsed.extra_lines:
+    # extra lines (comments, locals)
+    for raw in seg.extra_lines:
         lines.append(raw)
 
-    # --- close rollout ---
-    lines.append(f"{parsed.rollout_indent})\n")
+    # close rollout
+    lines.append(f"{ind})\n")
 
-    # --- post_rollout verbatim ---
-    lines.append(parsed.post_rollout)
+    return ''.join(lines)
+
+
+def write_ms_file(parsed: ParsedMS, path: str) -> None:
+    parts: list[str] = []
+    for seg in parsed.segments:
+        if isinstance(seg, TextSegment):
+            parts.append(seg.text)
+        elif isinstance(seg, RolloutSegment):
+            parts.append(_write_rollout_segment(seg))
 
     with open(path, 'w', encoding='utf-8') as f:
-        f.write(''.join(lines))
+        f.write(''.join(parts))
