@@ -1,0 +1,126 @@
+MAXScript GUI Editor — Python Edition
+======================================
+Standalone Desktop App with WYSIWYG Canvas & TCP Bridge to 3ds Max
+-------------------------------------------------------------------
+
+REQUIREMENTS
+  - Python 3.9 or newer  (https://www.python.org/downloads/)
+    → Windows: check "Add Python to PATH" during installation
+  - PySide6  (installed automatically by the installer)
+  - For TCP bridge: 3ds Max 2022 or newer (optional)
+
+INSTALLATION — WINDOWS
+  1. Extract  maxscript-gui-editor-python-<version>.zip.
+  2. Double-click  install.bat.
+  3. The script automatically:
+       • checks your Python version
+       • creates a virtual environment at:
+           %LOCALAPPDATA%\MAXScriptGUIEditor\
+       • installs PySide6
+       • creates a Desktop shortcut and Start Menu entry
+  4. Done — launch the app from the Desktop shortcut.
+
+INSTALLATION — LINUX
+  1. Extract the ZIP.
+  2. Open a terminal in the extracted folder:
+       bash install.sh
+  3. The script creates:
+       • virtual environment:  ~/.local/share/maxscript-gui-editor/
+       • launcher script:      ~/.local/bin/maxscript-gui-editor
+       • application menu entry (.desktop)
+  4. Launch:  maxscript-gui-editor  or via the application menu.
+
+INSTALLATION — MACOS
+  1. Extract the ZIP.
+  2. Open a terminal in the extracted folder:
+       bash install.sh
+  3. The script creates:
+       • virtual environment:  ~/.local/share/maxscript-gui-editor/
+       • launcher script:      ~/.local/bin/maxscript-gui-editor
+       • app bundle:           ~/Applications/MAXScript GUI Editor.app
+  4. Launch: double-click the app bundle or run  maxscript-gui-editor  in the terminal.
+
+MANUAL START (without installer)
+  pip install PySide6
+  python main.py
+
+USAGE
+  Left panel
+    Control palette    → drag a control type onto the canvas
+                         or click "Add →"
+    "Delete" button    → delete the selected control
+
+  Canvas (centre)
+    WYSIWYG preview    → drag controls to reposition (4 px grid snap)
+    Grid dots          → show the 4 px snap grid
+    Rollout frame      → grey area = actual rollout size
+
+  Right panel — 4 tabs
+    Control            → name, label, position, size, type-specific properties
+    Events             → add / edit / remove event handlers with code editor
+    Rollout            → rollout name, title, width, position
+    MacroScript        → output mode, category, internal name, tooltip
+
+  Code area (bottom)
+    "Generate Code"        → show MAXScript code (F5)
+    "Copy to Clipboard"    → copy code (Ctrl+Shift+C)
+    "▶ Send to Max"        → send code directly to 3ds Max (F6)
+    "⬤ Ping"               → test the TCP bridge connection
+
+  Keyboard shortcuts
+    Ctrl+Z / Ctrl+Y    Undo / Redo (50 levels)
+    F5                 Generate code
+    F6                 Send code to 3ds Max
+    Ctrl+Shift+C       Copy code to clipboard
+    Ctrl+D             Duplicate selected control
+    Del                Delete selected control
+    Ctrl+S             Save
+    Ctrl+O             Open
+    Ctrl+N             New layout
+
+SAVE / LOAD
+  File > Save (Ctrl+S)   → save layout as .json
+  File > Open (Ctrl+O)   → load a saved layout
+  Format: JSON — human-readable, Git-friendly, cross-platform portable
+
+OUTPUT MODES
+  Rollout-only   → plain rollout block, ready to use directly
+  MacroScript    → full macroScript with createDialog,
+                   position memory (persistent global) and isChecked
+
+TCP BRIDGE — SEND CODE DIRECTLY TO 3DS MAX
+  Step 1 — Start the listener in 3ds Max:
+    Scripting > Run Script > select  max_bridge_listener.ms
+    The MAXScript Listener prints:
+      === MAXScript Bridge Listener started on port 27120 ===
+
+  Step 2 — Connect:
+    Code > Bridge Settings… — verify host and port
+      Default: 127.0.0.1 : 27120
+    Click "⬤ Ping" — turns green on success
+
+  Step 3 — Send:
+    Click "▶ Send to Max" or press F6
+    Code is executed in 3ds Max within ~50 ms
+
+  Stop the listener (in 3ds Max):
+    stopBridgeListener()
+
+BUILD A STANDALONE EXE (no Python required at the target machine)
+  pip install pyinstaller
+  pyinstaller maxscript_gui_editor.spec
+  → Output: dist\MAXScriptGUIEditor\MAXScriptGUIEditor.exe
+
+UNINSTALL — WINDOWS
+  - Delete:  %LOCALAPPDATA%\MAXScriptGUIEditor\
+  - Delete the Desktop shortcut manually.
+  - Start Menu: right-click the entry > Uninstall.
+
+UNINSTALL — LINUX / MACOS
+  rm -rf ~/.local/share/maxscript-gui-editor/
+  rm -f  ~/.local/bin/maxscript-gui-editor
+  rm -f  ~/.local/share/applications/maxscript-gui-editor.desktop   (Linux)
+  rm -rf ~/Applications/MAXScript\ GUI\ Editor.app                  (macOS)
+
+SUPPORT / SOURCE CODE
+  https://github.com/alex-HH88/maxscript-gui-editor

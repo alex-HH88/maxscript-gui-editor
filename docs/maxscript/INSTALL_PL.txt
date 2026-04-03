@@ -1,0 +1,69 @@
+MAXScript GUI Editor — Wersja MAXScript
+========================================
+Wizualny projektant Rollout i MacroScript działający bezpośrednio w 3ds Max
+---------------------------------------------------------------------------
+
+WYMAGANIA
+  - Autodesk 3ds Max 2022 lub nowszy
+  - Python ani żadne zewnętrzne oprogramowanie nie jest wymagane
+
+INSTALACJA
+  1. Rozpakuj  maxscript-gui-editor-<wersja>.zip.
+  2. Otwórz 3ds Max.
+  3. Uruchom instalator — jedna z metod:
+       • Przeciągnij  installer-<wersja>.ms  na okno widoku (viewport)
+       • Scripting > Run Script > wybierz  installer-<wersja>.ms
+  4. Przeczytaj i zamknij okno potwierdzenia.
+     Narzędzie jest teraz zarejestrowane jako MacroScript (kategoria „Tools").
+
+DODAWANIE PRZYCISKU DO PASKA NARZĘDZI
+  - Customize > Customize User Interface > zakładka „Toolbars"
+  - Kategoria: Tools
+  - Przeciągnij „MAXScript GUI Editor" na dowolny pasek narzędzi.
+  Wskazówka: W zakładce „Keyboard" możesz przypisać skrót klawiszowy.
+
+OBSŁUGA
+  Lewy panel
+    Przyciski „Add Control" → wybierz typ kontrolki i dodaj ją
+    Lista kontrolek         → kliknij kontrolkę, aby ją wybrać
+    Zakładka „Event Handlers" → zarządzaj obsługą zdarzeń z edytorem kodu
+
+  Prawy panel (sub_left / sub_right)
+    Edytuj właściwości wybranej kontrolki (zależne od typu)
+    Zakładka „Rollout Params"     → nazwa rolloutu, tytuł, szerokość
+    Zakładka „MacroScript Config" → tryb wyjścia, kategoria, nazwa wewnętrzna
+
+  Cofnij / Ponów
+    Przyciski w lewym panelu — 20 poziomów
+
+  Generowanie kodu
+    Panel „Save/Load" → „Generate Code"
+    → Kod jest kopiowany do schowka
+    → Wklej do okna MAXScript Listener lub zapisz jako plik .ms
+
+  Tryby wyjścia
+    Rollout-only   → zwykły blok rollout
+    MacroScript    → pełny macroScript z createDialog i zapisem pozycji okna
+
+ZAPIS / WCZYTYWANIE
+  „Save Layout"   → zapis projektu jako plik .dat
+  „Load Layout"   → wczytanie zapisanego projektu
+  „Import Code"   → parsowanie istniejącego kodu rollout MAXScript
+                    (parser podstawowy — skomplikowane wyrażenia mogą wymagać
+                    ręcznej korekty)
+
+OBSŁUGIWANE TYPY KONTROLEK (23)
+  button · checkbutton · checkbox · colorpicker · combobox · edittext
+  groupbox · imgTag · label · listbox · mapbutton · materialbutton
+  multilistbox · pickbutton · progressbar · radiobuttons · slider
+  spinner · timer · bitmap · curvecontrol · angle · hyperlink
+
+DEINSTALACJA
+  1. Usuń folder:
+       %LOCALAPPDATA%\Autodesk\3dsMax\<wersja>\ENU\scripts\MAXScriptGUIEditor\
+  2. Usuń przycisk paska narzędzi:
+       Customize > Customize User Interface > kliknij przycisk prawym
+       przyciskiem myszy > Delete.
+
+WSPARCIE / KOD ŹRÓDŁOWY
+  https://github.com/alex-HH88/maxscript-gui-editor

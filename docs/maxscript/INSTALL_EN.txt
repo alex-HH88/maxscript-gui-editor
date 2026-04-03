@@ -1,0 +1,67 @@
+MAXScript GUI Editor — MAXScript Edition
+=========================================
+Visual Rollout & MacroScript Designer running directly inside 3ds Max
+----------------------------------------------------------------------
+
+REQUIREMENTS
+  - Autodesk 3ds Max 2022 or newer
+  - No Python or external software required
+
+INSTALLATION
+  1. Extract  maxscript-gui-editor-<version>.zip.
+  2. Open 3ds Max.
+  3. Run the installer — choose one method:
+       • Drag  installer-<version>.ms  onto the viewport
+       • Scripting > Run Script > select  installer-<version>.ms
+  4. Read the confirmation dialog and close it.
+     The tool is now registered as a MacroScript (category "Tools").
+
+ADDING A TOOLBAR BUTTON
+  - Customize > Customize User Interface > Toolbars tab
+  - Category: Tools
+  - Drag "MAXScript GUI Editor" onto any toolbar.
+  Tip: Use the Keyboard tab to assign a keyboard shortcut.
+
+USAGE
+  Left panel
+    "Add Control" buttons  → choose a control type and add it
+    Control list           → click a control to select it
+    "Event Handlers" tab   → manage event handlers with code editor
+
+  Right panel (sub_left / sub_right)
+    Edit type-specific properties of the selected control
+    "Rollout Params" tab    → set rollout name, title, width
+    "MacroScript Config" tab→ set output mode, category, internal name
+
+  Undo / Redo
+    Buttons in the left panel — 20 levels
+
+  Generate code
+    "Save/Load" panel → "Generate Code"
+    → Code is copied to the clipboard
+    → Paste into the MAXScript Listener or save as a .ms file
+
+  Output modes
+    Rollout-only   → plain rollout block
+    MacroScript    → full macroScript with createDialog and position memory
+
+SAVE / LOAD
+  "Save Layout"   → save design as a .dat file
+  "Load Layout"   → load a saved design
+  "Import Code"   → parse existing MAXScript rollout code
+                    (basic parser — complex expressions may need manual adjustment)
+
+SUPPORTED CONTROL TYPES (23)
+  button · checkbutton · checkbox · colorpicker · combobox · edittext
+  groupbox · imgTag · label · listbox · mapbutton · materialbutton
+  multilistbox · pickbutton · progressbar · radiobuttons · slider
+  spinner · timer · bitmap · curvecontrol · angle · hyperlink
+
+UNINSTALL
+  1. Delete the folder:
+       %LOCALAPPDATA%\Autodesk\3dsMax\<version>\ENU\scripts\MAXScriptGUIEditor\
+  2. Remove the toolbar button:
+       Customize > Customize User Interface > right-click the button > Delete.
+
+SUPPORT / SOURCE CODE
+  https://github.com/alex-HH88/maxscript-gui-editor

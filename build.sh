@@ -48,7 +48,7 @@ for f in src/gui_editor.ms deploy/install.ms; do
     fi
 done
 
-# --- 3. Build MAXScript ZIP ---
+# --- 3. Build MAXScript ZIP (MAXScript Edition only) ---
 ZIP_NAME="maxscript-gui-editor-${NEW_VERSION}.zip"
 STAGING=$(mktemp -d)
 mkdir -p "$STAGING/src/lib"
@@ -56,29 +56,28 @@ mkdir -p "$STAGING/src/lib"
 cp deploy/install.ms          "$STAGING/installer-${NEW_VERSION}.ms"
 cp src/gui_editor.ms          "$STAGING/src/"
 [ -f src/lib/gui_lib.ms ] && cp src/lib/gui_lib.ms "$STAGING/src/lib/"
-for txt in docs/*.txt; do [ -f "$txt" ] && cp "$txt" "$STAGING/"; done
+for txt in docs/maxscript/*.txt; do [ -f "$txt" ] && cp "$txt" "$STAGING/"; done
 
 (cd "$STAGING" && zip -r "${SCRIPT_DIR}/${ZIP_NAME}" . -x "*.DS_Store")
 rm -rf "$STAGING"
 echo "Built: ${ZIP_NAME}"
 
-# --- 3b. Build Python App ZIP ---
+# --- 3b. Build Python App ZIP (Python Edition only) ---
 PY_ZIP_NAME="maxscript-gui-editor-python-${NEW_VERSION}.zip"
 PY_STAGING=$(mktemp -d)
 
-cp -r python_app/app         "$PY_STAGING/app"
-cp    python_app/main.py             "$PY_STAGING/"
-cp    python_app/requirements.txt    "$PY_STAGING/"
-cp    python_app/install.bat         "$PY_STAGING/"
-cp    python_app/install.sh          "$PY_STAGING/"
-cp    python_app/max_bridge_listener.ms "$PY_STAGING/"
-cp    python_app/maxscript_gui_editor.spec "$PY_STAGING/"
-for txt in docs/*.txt; do [ -f "$txt" ] && cp "$txt" "$PY_STAGING/"; done
+cp -r python_app/app                        "$PY_STAGING/app"
+cp    python_app/main.py                    "$PY_STAGING/"
+cp    python_app/requirements.txt           "$PY_STAGING/"
+cp    python_app/install.bat                "$PY_STAGING/"
+cp    python_app/install.sh                 "$PY_STAGING/"
+cp    python_app/max_bridge_listener.ms     "$PY_STAGING/"
+cp    python_app/maxscript_gui_editor.spec  "$PY_STAGING/"
+for txt in docs/python/*.txt; do [ -f "$txt" ] && cp "$txt" "$PY_STAGING/"; done
 [ -f README.md ] && cp README.md "$PY_STAGING/"
 
-# Remove __pycache__ from ZIP
 (cd "$PY_STAGING" && find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null; \
- zip -r "${SCRIPT_DIR}/${PY_ZIP_NAME}" . -x "*.DS_Store" -x "*/__pycache__/*" -x "*/.pyc")
+ zip -r "${SCRIPT_DIR}/${PY_ZIP_NAME}" . -x "*.DS_Store" -x "*/__pycache__/*" -x "*.pyc")
 rm -rf "$PY_STAGING"
 echo "Built: ${PY_ZIP_NAME}"
 
