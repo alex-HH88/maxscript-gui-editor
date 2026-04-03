@@ -164,6 +164,8 @@ def build_rollout_code(model: RolloutModel) -> str:
     header_params: list[str] = [_q(model.rollout_title)]
     if model.use_pos:
         header_params.append(f"pos:[{model.pos_x},{model.pos_y}]")
+    if model.use_width:
+        header_params.append(f"width:{model.width}")
     if model.use_height:
         header_params.append(f"height:{model.height}")
 

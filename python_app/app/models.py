@@ -3,7 +3,7 @@ from __future__ import annotations
 Data models for the MAXScript GUI Editor.
 All models are JSON-serializable dataclasses.
 """
-APP_VERSION = "1.14"
+APP_VERSION = "1.15"
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 import copy
@@ -141,6 +141,7 @@ class RolloutModel:
     rollout_title: str = "My Rollout"
     width: int = 330
     height: int = 500
+    use_width: bool = False
     use_height: bool = False
     use_pos: bool = False
     pos_x: int = 100

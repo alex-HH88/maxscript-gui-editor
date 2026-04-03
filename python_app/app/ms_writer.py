@@ -21,7 +21,8 @@ def _write_rollout_segment(seg: RolloutSegment) -> str:
     params = [_q(m.rollout_title)]
     if m.use_pos:
         params.append(f"pos:[{m.pos_x},{m.pos_y}]")
-    params.append(f"width:{m.width}")
+    if m.use_width:
+        params.append(f"width:{m.width}")
     if m.use_height:
         params.append(f"height:{m.height}")
     lines.append(f"{ind}rollout {m.rollout_name} {' '.join(params)}\n")

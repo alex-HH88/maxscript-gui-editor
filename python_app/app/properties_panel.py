@@ -234,7 +234,7 @@ class ControlPropertiesWidget(QWidget):
         w = QTextEdit()
         w.setPlainText("\n".join(items))
         w.setMaximumHeight(80)
-        w.textChanged.connect(lambda k=key, ww=w: self._set(k, ww.toPlainText().splitlines()))
+        w.textChanged.connect(lambda k=key, ww=w: self._set(k, [s for s in ww.toPlainText().splitlines() if s.strip()]))
         self._add(key, label, w)
 
     def _set(self, key: str, val):

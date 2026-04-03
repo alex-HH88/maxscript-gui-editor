@@ -430,6 +430,7 @@ def parse_ms_file(path: str) -> ParsedMS:
         if 'width' in rparams:
             try:
                 model.width = int(float(rparams['width']))
+                model.use_width = True
             except ValueError:
                 pass
         if 'height' in rparams:
