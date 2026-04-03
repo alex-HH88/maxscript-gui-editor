@@ -307,12 +307,12 @@ class RolloutCanvas(QGraphicsView):
         self.setTransform(QTransform.fromScale(self._zoom, self._zoom))
 
     def zoom_in(self):
-        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
+        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
         nxt = next((s for s in steps if s > self._zoom + 0.01), steps[-1])
         self.set_zoom(nxt)
 
     def zoom_out(self):
-        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
+        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0]
         prv = next((s for s in reversed(steps) if s < self._zoom - 0.01), steps[0])
         self.set_zoom(prv)
 
