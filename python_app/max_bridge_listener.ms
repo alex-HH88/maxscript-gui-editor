@@ -97,9 +97,8 @@ fn processBridgeQueue =
     catch ( format "Bridge execute error: %\n" (getCurrentException()) )
 )
 
-fn _closeClient clientSocket writer =
+fn _closeClient clientSocket unused =
 (
-    try ( writer.Flush() ) catch ()
     try
     (
         local sd = (dotNetClass "System.Net.Sockets.SocketShutdown").Both
@@ -108,29 +107,47 @@ fn _closeClient clientSocket writer =
     try ( clientSocket.Close() ) catch ()
 )
 
+fn _readLine netStream =
+(
+    -- Read bytes one-at-a-time until LF, return as string (no StreamReader buffering)
+    local byteType = dotNetClass "System.Byte"
+    local oneByte  = (dotNetClass "System.Array").CreateInstance byteType 1
+    local chars    = ""
+    local limit    = 64
+    while limit > 0 do
+    (
+        limit -= 1
+        local n = netStream.Read oneByte 0 1
+        if n <= 0 do exit
+        local b = (dotNetClass "System.Convert").ToChar oneByte[0]
+        if b == "\n" do exit
+        if b != "\r" do chars += b as string
+    )
+    chars
+)
+
 fn handleClientV2 clientSocket =
 (
     try
     (
         local netStream = clientSocket.GetStream()
-        local reader    = dotNetObject "System.IO.StreamReader" netStream
-        local writer    = dotNetObject "System.IO.StreamWriter" netStream
-        writer.AutoFlush = true
 
-        local header = reader.ReadLine()
+        local header = _readLine netStream
 
         -- handle ping
         if header == "-- ping" do
         (
-            writer.WriteLine "OK:pong"
-            _closeClient clientSocket writer
+            local resp = (dotNetClass "System.Text.Encoding").UTF8.GetBytes "OK:pong\n"
+            netStream.Write resp 0 resp.Length
+            _closeClient clientSocket undefined
             return undefined
         )
 
         if header == undefined or header.count < 8 do
         (
-            writer.WriteLine "ERROR:bad_header"
-            _closeClient clientSocket writer
+            local resp = (dotNetClass "System.Text.Encoding").UTF8.GetBytes "ERROR:bad_header\n"
+            netStream.Write resp 0 resp.Length
+            _closeClient clientSocket undefined
             return undefined
         )
 
@@ -138,24 +155,26 @@ fn handleClientV2 clientSocket =
         try ( payloadLen = (execute ("0x" + (trimRight (trimLeft header)))) ) catch ()
         if payloadLen == undefined or payloadLen <= 0 do
         (
-            writer.WriteLine "ERROR:bad_length"
-            _closeClient clientSocket writer
+            local resp = (dotNetClass "System.Text.Encoding").UTF8.GetBytes "ERROR:bad_length\n"
+            netStream.Write resp 0 resp.Length
+            _closeClient clientSocket undefined
             return undefined
         )
 
-        -- Read payload
-        local buf = dotNetObject "System.Char[]" payloadLen
+        -- Read payload bytes directly from stream
+        local buf      = (dotNetClass "System.Array").CreateInstance (dotNetClass "System.Byte") payloadLen
         local totalRead = 0
         while totalRead < payloadLen do
         (
-            local n = reader.Read buf totalRead (payloadLen - totalRead)
+            local n = netStream.Read buf totalRead (payloadLen - totalRead)
             if n <= 0 do exit
             totalRead += n
         )
 
-        local code = (dotNetClass "System.String").new buf 0 totalRead
-        writer.WriteLine "OK"
-        _closeClient clientSocket writer
+        local code = (dotNetClass "System.Text.Encoding").UTF8.GetString buf 0 totalRead
+        local okResp = (dotNetClass "System.Text.Encoding").UTF8.GetBytes "OK\n"
+        netStream.Write okResp 0 okResp.Length
+        _closeClient clientSocket undefined
 
         -- Queue for main-thread execution via timer
         append _bridgePendingCode code
