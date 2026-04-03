@@ -1,7 +1,7 @@
 #!/bin/bash
-# build.sh — Bump version, build ZIP, commit and push
+# build.sh — Bump version, build Python ZIP, commit and push
 # Usage: bash build.sh [version]
-#        bash build.sh 1.02       (explicit)
+#        bash build.sh 1.10       (explicit)
 #        bash build.sh            (auto-bump +0.01)
 set -e
 
@@ -9,13 +9,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 NEW_VERSION="$1"
-MAIN_SCRIPT="src/gui_editor.ms"
+VERSION_FILE="python_app/app/models.py"
 
-# --- Auto-bump ---
+# --- Auto-bump from models.py ---
 if [ -z "$NEW_VERSION" ]; then
-    CURRENT=$(grep 'TOOLS_VERSION = "' "$MAIN_SCRIPT" | grep -o '"[0-9.]*"' | tr -d '"')
+    CURRENT=$(grep 'APP_VERSION' "$VERSION_FILE" 2>/dev/null | grep -o '"[0-9.]*"' | tr -d '"')
     if [ -z "$CURRENT" ]; then
-        echo "ERROR: Could not read current version from $MAIN_SCRIPT"
+        # fallback: read from src/gui_editor.ms
+        CURRENT=$(grep 'TOOLS_VERSION = "' src/gui_editor.ms | grep -o '"[0-9.]*"' | tr -d '"')
+    fi
+    if [ -z "$CURRENT" ]; then
+        echo "ERROR: Could not read current version."
         exit 1
     fi
     DOTS=$(echo "$CURRENT" | tr -cd '.' | wc -c)
@@ -28,41 +32,31 @@ if [ -z "$NEW_VERSION" ]; then
     fi
 fi
 
-echo "=== Building MAXScript GUI Editor v${NEW_VERSION} ==="
+echo "=== Building MAXScript GUI Editor (Python Edition) v${NEW_VERSION} ==="
 
-# --- 1. Set version in all source files ---
+# --- 1. Set version in Python app ---
+if grep -q 'APP_VERSION' "$VERSION_FILE"; then
+    sed -i "s/APP_VERSION = \"[^\"]*\"/APP_VERSION = \"${NEW_VERSION}\"/" "$VERSION_FILE"
+else
+    sed -i "1s/^/APP_VERSION = \"${NEW_VERSION}\"\n/" "$VERSION_FILE"
+fi
+
+# keep MAXScript files in sync (archived, not actively built)
 for f in src/gui_editor.ms deploy/install.ms; do
     [ -f "$f" ] && sed -i "s/TOOLS_VERSION = \"[^\"]*\"/TOOLS_VERSION = \"${NEW_VERSION}\"/" "$f"
 done
 
 # --- 2. Verify ---
 echo "--- Version check ---"
-for f in src/gui_editor.ms deploy/install.ms; do
-    [ -f "$f" ] || continue
-    FOUND=$(grep "TOOLS_VERSION = \"${NEW_VERSION}\"" "$f" || true)
-    if [ -n "$FOUND" ]; then
-        echo "OK: $f -> v${NEW_VERSION}"
-    else
-        echo "ERROR: Version mismatch in $f"
-        exit 1
-    fi
-done
+FOUND=$(grep "APP_VERSION = \"${NEW_VERSION}\"" "$VERSION_FILE" || true)
+if [ -n "$FOUND" ]; then
+    echo "OK: $VERSION_FILE -> v${NEW_VERSION}"
+else
+    echo "ERROR: Version not updated in $VERSION_FILE"
+    exit 1
+fi
 
-# --- 3. Build MAXScript ZIP (MAXScript Edition only) ---
-ZIP_NAME="maxscript-gui-editor-${NEW_VERSION}.zip"
-STAGING=$(mktemp -d)
-mkdir -p "$STAGING/src/lib"
-
-cp deploy/install.ms          "$STAGING/installer-${NEW_VERSION}.ms"
-cp src/gui_editor.ms          "$STAGING/src/"
-[ -f src/lib/gui_lib.ms ] && cp src/lib/gui_lib.ms "$STAGING/src/lib/"
-for txt in docs/maxscript/*.txt; do [ -f "$txt" ] && cp "$txt" "$STAGING/"; done
-
-(cd "$STAGING" && zip -r "${SCRIPT_DIR}/${ZIP_NAME}" . -x "*.DS_Store")
-rm -rf "$STAGING"
-echo "Built: ${ZIP_NAME}"
-
-# --- 3b. Build Python App ZIP (Python Edition only) ---
+# --- 3. Build Python ZIP ---
 PY_ZIP_NAME="maxscript-gui-editor-python-${NEW_VERSION}.zip"
 PY_STAGING=$(mktemp -d)
 
@@ -81,9 +75,8 @@ for txt in docs/python/*.txt; do [ -f "$txt" ] && cp "$txt" "$PY_STAGING/"; done
 rm -rf "$PY_STAGING"
 echo "Built: ${PY_ZIP_NAME}"
 
-# --- 4. Remove old ZIPs ---
-for old in "${SCRIPT_DIR}"/maxscript-gui-editor-*.zip; do
-    [ "$old" = "${SCRIPT_DIR}/${ZIP_NAME}" ] && continue
+# --- 4. Remove old Python ZIPs ---
+for old in "${SCRIPT_DIR}"/maxscript-gui-editor-python-*.zip; do
     [ "$old" = "${SCRIPT_DIR}/${PY_ZIP_NAME}" ] && continue
     [ -f "$old" ] || continue
     git rm --cached "$old" 2>/dev/null || true
@@ -101,4 +94,4 @@ EOF
 )"
 
 bash push.sh
-echo "=== Done: v${NEW_VERSION} — ${ZIP_NAME} ==="
+echo "=== Done: v${NEW_VERSION} — ${PY_ZIP_NAME} ==="
