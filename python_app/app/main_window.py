@@ -672,6 +672,19 @@ class MainWindow(QMainWindow):
             rname = self._model.rollout_name
             code = code + f"\ncreateDialog {rname}"
 
+        # If rollout title is a dynamic expression, guard any undefined globals
+        # e.g. ("vrscene  v" + VRSCENE_TOOLS_VERSION) → prepend guard
+        import re as _re
+        title = self._model.rollout_title
+        if title.startswith("("):
+            caps_vars = _re.findall(r'\b([A-Z][A-Z0-9_]{2,})\b', title)
+            if caps_vars:
+                guards = "\n".join(
+                    f'if {v} == undefined do global {v} = "1.0"'
+                    for v in dict.fromkeys(caps_vars)  # deduplicate, preserve order
+                )
+                code = guards + "\n" + code
+
         # MAXScript bit.intAsChar doesn't handle tab (byte 9) — use spaces
         code = code.replace("\t", "    ")
 

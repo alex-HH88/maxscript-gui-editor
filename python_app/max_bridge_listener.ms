@@ -102,10 +102,6 @@ fn processBridgeQueue =
     local code = _bridgePendingCode[1]
     deleteItem _bridgePendingCode 1
 
-    -- Debug: print what we're about to execute
-    format "DBG execute: classOf=% len=%\n" (classOf code) \
-        (if code != undefined then code.count else -1)
-
     if code == undefined do return undefined
     try ( execute code )
     catch ( format "Bridge execute error: %\n" (getCurrentException()) )
