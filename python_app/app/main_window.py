@@ -530,45 +530,57 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # .ms round-trip import / export
     # ------------------------------------------------------------------
-    # ------------------------------------------------------------------
-    # Patch radiobuttons labels from on-open handler bodies
+    # Patch dynamic control properties from on-open handler bodies
     # ------------------------------------------------------------------
     @staticmethod
-    def _patch_radiobuttons_labels(seg) -> None:
+    def _patch_dynamic_properties(seg) -> None:
         """
-        Scans all event handler bodies in a RolloutSegment for
-        assignments like:  rad_foo.labels = #("A","B","C")
-        and writes the extracted labels back into the ControlModel.
-        This lets radiobuttons show real labels in the Send-to-Max preview.
+        Scans all event handler bodies in a RolloutSegment for dynamic
+        property assignments and writes them back into ControlModel fields:
+          ctrl.labels  = #("a","b")   → radiobuttons.labels
+          ctrl.items   = #("a","b")   → combobox/listbox/dropdownlist.items
+          ctrl.enabled = false        → ctrl.enabled
+          ctrl.visible = false        → ctrl.visible
+          ctrl.checked = true/false   → checkbox/checkbutton.checked
         """
-        ctrl_map = {c.name: c for c in seg.model.controls if c.control_type == "radiobuttons"}
+        ctrl_map = {c.name: c for c in seg.model.controls}
         if not ctrl_map:
             return
 
-        # Pattern:  controlName.labels = #("a", "b", ...)
-        _LABELS_RE = re.compile(
-            r'\b(\w+)\.labels\s*=\s*#\(([^)]+)\)',
-            re.IGNORECASE
-        )
-        _STR_RE = re.compile(r'"([^"]*)"')
+        _LABELS_RE  = re.compile(r'\b(\w+)\.labels\s*=\s*#\(([^)]+)\)',  re.IGNORECASE)
+        _ITEMS_RE   = re.compile(r'\b(\w+)\.items\s*=\s*#\(([^)]+)\)',   re.IGNORECASE)
+        _BOOL_RE    = re.compile(r'\b(\w+)\.(enabled|visible|checked)\s*=\s*(true|false)', re.IGNORECASE)
+        _STR_RE     = re.compile(r'"([^"]*)"')
 
-        # Search all handler bodies stored in event_bodies
+        def _apply(text: str) -> None:
+            for m in _LABELS_RE.finditer(text):
+                c = ctrl_map.get(m.group(1))
+                if c:
+                    vals = _STR_RE.findall(m.group(2))
+                    if vals:
+                        c.labels = vals
+            for m in _ITEMS_RE.finditer(text):
+                c = ctrl_map.get(m.group(1))
+                if c:
+                    vals = _STR_RE.findall(m.group(2))
+                    if vals:
+                        c.items = vals
+            for m in _BOOL_RE.finditer(text):
+                c = ctrl_map.get(m.group(1))
+                if c:
+                    val = m.group(3).lower() == "true"
+                    prop = m.group(2).lower()
+                    if prop == "enabled":
+                        c.enabled = val
+                    elif prop == "visible":
+                        c.visible = val
+                    elif prop == "checked":
+                        c.checked = val
+
         for body_code in seg.event_bodies.values():
-            for m in _LABELS_RE.finditer(body_code):
-                name = m.group(1)
-                if name in ctrl_map:
-                    labels = _STR_RE.findall(m.group(2))
-                    if labels:
-                        ctrl_map[name].labels = labels
-
-        # Also search orphaned_events (verbatim text)
+            _apply(body_code)
         for raw in seg.orphaned_events:
-            for m in _LABELS_RE.finditer(raw):
-                name = m.group(1)
-                if name in ctrl_map:
-                    labels = _STR_RE.findall(m.group(2))
-                    if labels:
-                        ctrl_map[name].labels = labels
+            _apply(raw)
 
     def _open_ms(self):
         if not self._confirm_discard():
@@ -588,9 +600,9 @@ class MainWindow(QMainWindow):
                     "The file may use dynamic control creation which cannot be parsed.")
                 return
 
-            # Patch radiobuttons labels from on-open handler bodies
+            # Patch dynamic properties from on-open handler bodies
             for seg in segs:
-                self._patch_radiobuttons_labels(seg)
+                self._patch_dynamic_properties(seg)
 
             self._parsed_ms = parsed
             self._current_file = Path(path)
