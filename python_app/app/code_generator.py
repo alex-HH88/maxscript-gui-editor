@@ -79,7 +79,7 @@ def _build_control(c: ControlModel, indent: str = "\t") -> str:
     elif ct == "radiobuttons":
         labels = c.labels if c.labels else ["Option 1", "Option 2"]
         params.append(f"labels:{_arr(labels)}")
-        if c.columns > 1:
+        if c.columns >= 1:
             params.append(f"columns:{c.columns}")
 
     elif ct == "edittext":
