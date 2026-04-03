@@ -10,10 +10,14 @@
 global BRIDGE_VERSION = "1.15"
 global BRIDGE_PORT    = 27120
 
--- Preserve existing instances across re-FileIn so we can stop them cleanly
-if not (globalVars.isGlobal "_bridgeThread")   do global _bridgeThread   = undefined
-if not (globalVars.isGlobal "_bridgeListener") do global _bridgeListener = undefined
-if not (globalVars.isGlobal "_bridgeRunning")  do global _bridgeRunning  = false
+-- Declare globals without assignment to preserve existing values across re-FileIn
+global _bridgeThread
+global _bridgeListener
+global _bridgeRunning
+-- Initialize only on first load (when still undefined)
+if _bridgeThread   == undefined do _bridgeThread   = undefined
+if _bridgeListener == undefined do _bridgeListener = undefined
+if _bridgeRunning  == undefined do _bridgeRunning  = false
 
 -- -----------------------------------------------------------------------
 -- Protocol handler (runs on a background .NET thread)
