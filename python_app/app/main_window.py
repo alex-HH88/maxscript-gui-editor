@@ -75,7 +75,7 @@ _CATEGORY_ORDER = [
     ("Input",    ["button", "checkbutton", "checkbox", "pickbutton",
                   "mapbutton", "materialbutton"]),
     ("Value",    ["spinner", "slider", "angle", "colorpicker", "progressbar"]),
-    ("List",     ["combobox", "listbox", "multilistbox", "radiobuttons"]),
+    ("List",     ["combobox", "dropdownlist", "listbox", "multilistbox", "radiobuttons"]),
     ("Text",     ["label", "edittext", "hyperlink"]),
     ("Display",  ["imgTag", "bitmap", "curvecontrol", "groupbox"]),
     ("Other",    ["timer"]),

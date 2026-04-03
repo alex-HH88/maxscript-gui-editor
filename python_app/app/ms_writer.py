@@ -18,7 +18,9 @@ def _write_rollout_segment(seg: RolloutSegment) -> str:
     lines: list[str] = []
 
     # header
-    params = [_q(m.rollout_title)]
+    # Preserve dynamic titles like ("v" + VAR) verbatim; quote plain strings
+    title_part = m.rollout_title if m.rollout_title.startswith('(') else _q(m.rollout_title)
+    params = [title_part]
     if m.use_pos:
         params.append(f"pos:[{m.pos_x},{m.pos_y}]")
     if m.use_width:

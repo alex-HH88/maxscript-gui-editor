@@ -161,7 +161,8 @@ def build_rollout_code(model: RolloutModel) -> str:
     """Generate a plain rollout block."""
     lines: list[str] = []
 
-    header_params: list[str] = [_q(model.rollout_title)]
+    title_part = model.rollout_title if model.rollout_title.startswith('(') else _q(model.rollout_title)
+    header_params: list[str] = [title_part]
     if model.use_pos:
         header_params.append(f"pos:[{model.pos_x},{model.pos_y}]")
     if model.use_width:

@@ -26,6 +26,7 @@ _COLORS: dict[str, tuple[str, str]] = {
     "checkbox":       ("#5BA85A", "#FFFFFF"),
     "colorpicker":    ("#C0783C", "#FFFFFF"),
     "combobox":       ("#7B68EE", "#FFFFFF"),
+    "dropdownlist":   ("#7B68EE", "#FFFFFF"),
     "edittext":       ("#555E6E", "#FFFFFF"),
     "groupbox":       ("#3A3A3A", "#AAAAAA"),
     "imgTag":         ("#2E2E2E", "#888888"),

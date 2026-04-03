@@ -3,7 +3,7 @@ from __future__ import annotations
 Data models for the MAXScript GUI Editor.
 All models are JSON-serializable dataclasses.
 """
-APP_VERSION = "1.16"
+APP_VERSION = "1.17"
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 import copy
@@ -15,7 +15,7 @@ import json
 # ---------------------------------------------------------------------------
 CONTROL_TYPES = [
     "button", "checkbutton", "checkbox", "colorpicker", "combobox",
-    "edittext", "groupbox", "imgTag", "label", "listbox",
+    "dropdownlist", "edittext", "groupbox", "imgTag", "label", "listbox",
     "mapbutton", "materialbutton", "multilistbox", "pickbutton",
     "progressbar", "radiobuttons", "slider", "spinner",
     "timer", "bitmap", "curvecontrol", "angle", "hyperlink",
@@ -27,6 +27,7 @@ CONTROL_DEFAULTS: dict[str, dict] = {
     "checkbox":        {"width": 90,  "height": 16, "label": "Checkbox"},
     "colorpicker":     {"width": 90,  "height": 16, "label": "Color"},
     "combobox":        {"width": 120, "height": 20, "label": "ComboBox"},
+    "dropdownlist":    {"width": 120, "height": 20, "label": "DropDown"},
     "edittext":        {"width": 120, "height": 20, "label": "EditText"},
     "groupbox":        {"width": 160, "height": 80, "label": "Group"},
     "imgTag":          {"width": 100, "height": 60, "label": ""},

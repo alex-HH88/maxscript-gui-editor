@@ -46,6 +46,7 @@ class EventHandlerEditor(QWidget):
         "checkbox":        ["changed"],
         "colorpicker":     ["changed"],
         "combobox":        ["selected", "changed"],
+        "dropdownlist":    ["selected", "changed"],
         "edittext":        ["changed", "entered"],
         "listbox":         ["selected", "doubleClicked"],
         "multilistbox":    ["selected"],

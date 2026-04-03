@@ -62,8 +62,9 @@ _CTRL_TYPE_RE = re.compile(
     r'^\s*(' + '|'.join(re.escape(t) for t in CONTROL_TYPES) + r')\s+(\w+)(.*)',
     re.IGNORECASE
 )
+# Group 3 = full title token ("..." or (...)); group 4 = literal content if "..." else None
 _ROLLOUT_RE = re.compile(
-    r'^(\s*)rollout\s+(\w+)\s+"([^"]*)"(.*)',
+    r'^(\s*)rollout\s+(\w+)\s+("([^"]*)"|\([^)]*\))(.*)',
     re.IGNORECASE
 )
 # Group 4 captures optional inline body after "do" (single-line handlers)
@@ -330,9 +331,25 @@ def _parse_rollout_body(
             handler_header = raw          # save for orphan verbatim output
             i += 1
 
+            orphan_suffix = ''  # raw text appended to handler_header for verbatim orphan write
             if inline_body is not None:
-                # single-line handler: body is on the same line after "do"
-                body_code = inline_body.strip() + '\n'
+                d = _paren_depth(inline_body)
+                if d == 0:
+                    # balanced on the do-line: truly inline or "(expr)"
+                    body_code = inline_body.strip() + '\n'
+                    orphan_suffix = body_code
+                else:
+                    # "on ... do (" — paren opened on the do-line; body on following lines
+                    # handler_header already contains the "(", collect remaining lines only
+                    depth = d
+                    following: list[str] = []
+                    while i < len(body) and depth > 0:
+                        line = body[i]
+                        depth += _paren_depth(line)
+                        following.append(line)
+                        i += 1
+                    body_code = inline_body.strip() + '\n' + ''.join(following)
+                    orphan_suffix = ''.join(following)  # handler_header already has "("
             elif i < len(body) and body[i].strip().startswith('('):
                 # collect body using string-aware paren counter (Fix Bug #16)
                 depth = 0
@@ -345,11 +362,14 @@ def _parse_rollout_body(
                     if depth <= 0:
                         break
                 body_code = ''.join(block)
+                orphan_suffix = body_code
             elif i < len(body):
                 body_code = body[i]
+                orphan_suffix = body_code
                 i += 1
             else:
                 body_code = ''
+                orphan_suffix = ''
 
             event_bodies[(ctrl_name, event_name)] = body_code
 
@@ -364,7 +384,7 @@ def _parse_rollout_body(
                         break
             else:
                 # Orphaned: control not declared yet (or at all)
-                orphaned_events.append(handler_header + body_code)
+                orphaned_events.append(handler_header + orphan_suffix)
                 warnings.append(
                     f"Event 'on {ctrl_name} {event_name}' has no matching control "
                     f"— written verbatim."
@@ -421,10 +441,11 @@ def parse_ms_file(path: str) -> ParsedMS:
             result.segments.append(TextSegment(''.join(text_buf)))
             text_buf = []
 
-        indent  = m.group(1)
-        rname   = m.group(2)
-        rtitle  = m.group(3)
-        rparams = _parse_params(m.group(4))
+        indent    = m.group(1)
+        rname     = m.group(2)
+        # group(4) is the literal string content if title was "..."; None for (expr) titles
+        rtitle    = m.group(4) if m.group(4) is not None else m.group(3)
+        rparams   = _parse_params(m.group(5))
 
         model = RolloutModel(rollout_name=rname, rollout_title=rtitle)
         if 'width' in rparams:
