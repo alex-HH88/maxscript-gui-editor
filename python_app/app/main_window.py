@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QMimeData, QSize, Signal, QObject
+from PySide6.QtCore import Qt, QMimeData, QSize, Signal, QObject, QSettings
 from PySide6.QtGui import (
     QAction, QDrag, QFont, QKeySequence, QColor,
 )
@@ -133,6 +133,9 @@ class ControlPalette(QWidget):
         return None
 
 
+_RECENT_MAX  = 10
+_UNDO_LIMIT  = 100
+
 # ---------------------------------------------------------------------------
 class MainWindow(QMainWindow):
 
@@ -152,6 +155,8 @@ class MainWindow(QMainWindow):
         self._load_bridge_config()
         self._parsed_ms: Optional[ParsedMS] = None   # active .ms round-trip state
         self._active_rollout_idx: int = 0             # Fix Bug #9/10
+
+        self._recent_files: list[str] = self._load_recent()
 
         self._init_ui()
         self._init_menu()
@@ -276,6 +281,8 @@ class MainWindow(QMainWindow):
         a_imp_ms.triggered.connect(self._open_ms)
         a_sav_ms.triggered.connect(self._save_ms)
         a_quit.triggered.connect(self.close)
+        self._recent_menu = fm.addMenu("Open Recent")
+        self._rebuild_recent_menu()
         fm.addAction(a_new)
         fm.addAction(a_open)
         fm.addAction(a_save)
@@ -389,7 +396,7 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     def _push_undo(self):
         self._undo_stack.append(copy.deepcopy(self._model))
-        if len(self._undo_stack) > 50:
+        if len(self._undo_stack) > _UNDO_LIMIT:
             self._undo_stack.pop(0)
         self._redo_stack.clear()
 
@@ -538,6 +545,7 @@ class MainWindow(QMainWindow):
             self._undo_stack.clear()
             self._redo_stack.clear()
             self._reload_all()
+            self._add_to_recent(path)
             self._status.showMessage(f"Loaded: {path}")
         except Exception as e:
             QMessageBox.critical(self, "Load Error", str(e))
@@ -561,9 +569,73 @@ class MainWindow(QMainWindow):
             self._current_file = path
             self._dirty = False
             self._update_title()
+            self._add_to_recent(str(path))
             self._status.showMessage(f"Saved: {path}")
         except Exception as e:
             QMessageBox.critical(self, "Save Error", str(e))
+
+    # ------------------------------------------------------------------
+    # Recent files
+
+    def _load_recent(self) -> list[str]:
+        s = QSettings("MAXScriptGUIEditor", "RecentFiles")
+        val = s.value("recent", [])
+        return list(val) if isinstance(val, (list, tuple)) else []
+
+    def _save_recent(self):
+        s = QSettings("MAXScriptGUIEditor", "RecentFiles")
+        s.setValue("recent", self._recent_files)
+
+    def _add_to_recent(self, path: str):
+        if path in self._recent_files:
+            self._recent_files.remove(path)
+        self._recent_files.insert(0, path)
+        self._recent_files = self._recent_files[:_RECENT_MAX]
+        self._save_recent()
+        self._rebuild_recent_menu()
+
+    def _rebuild_recent_menu(self):
+        self._recent_menu.clear()
+        if not self._recent_files:
+            a = self._recent_menu.addAction("(empty)")
+            a.setEnabled(False)
+            return
+        for path in self._recent_files:
+            a = self._recent_menu.addAction(path)
+            a.triggered.connect(lambda checked=False, p=path: self._open_recent_file(p))
+        self._recent_menu.addSeparator()
+        self._recent_menu.addAction("Clear List", self._clear_recent)
+
+    def _open_recent_file(self, path: str):
+        if not Path(path).exists():
+            QMessageBox.warning(self, "File not found", f"File no longer exists:\n{path}")
+            self._recent_files.remove(path)
+            self._save_recent()
+            self._rebuild_recent_menu()
+            return
+        if not self._confirm_discard():
+            return
+        ext = Path(path).suffix.lower()
+        if ext == ".ms":
+            self._open_ms_path(path)
+        else:
+            try:
+                self._model = RolloutModel.load_json(path)
+                self._current_file = Path(path)
+                self._dirty = False
+                self._parsed_ms = None
+                self._undo_stack.clear()
+                self._redo_stack.clear()
+                self._reload_all()
+                self._add_to_recent(path)
+                self._status.showMessage(f"Loaded: {path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Load Error", str(e))
+
+    def _clear_recent(self):
+        self._recent_files.clear()
+        self._save_recent()
+        self._rebuild_recent_menu()
 
     # ------------------------------------------------------------------
     # .ms round-trip import / export
@@ -652,6 +724,9 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+        self._open_ms_path(path)
+
+    def _open_ms_path(self, path: str):
         try:
             parsed = parse_ms_file(path)
             segs = parsed.rollout_segments
@@ -687,6 +762,7 @@ class MainWindow(QMainWindow):
 
             # load first rollout
             self._load_rollout_segment(0)
+            self._add_to_recent(path)
 
             if parsed.parse_warnings:
                 QMessageBox.information(self, "Parse Warnings",
