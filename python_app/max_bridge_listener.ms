@@ -11,13 +11,13 @@ global BRIDGE_VERSION = "1.15"
 global BRIDGE_PORT    = 27120
 
 -- Declare globals without assignment to preserve existing values across re-FileIn
-global _bridgeThread
 global _bridgeListener
 global _bridgeRunning
+global _bridgeTimer
 -- Initialize only on first load (when still undefined)
-if _bridgeThread   == undefined do _bridgeThread   = undefined
 if _bridgeListener == undefined do _bridgeListener = undefined
 if _bridgeRunning  == undefined do _bridgeRunning  = false
+if _bridgeTimer    == undefined do _bridgeTimer    = undefined
 
 -- -----------------------------------------------------------------------
 -- Protocol handler (runs on a background .NET thread)
@@ -84,10 +84,9 @@ fn handleClient clientSocket =
 )
 
 -- -----------------------------------------------------------------------
--- Proper execution approach: use a timer to run code on the main thread
+-- Code queue (flushed by poll timer on the main thread)
 -- -----------------------------------------------------------------------
 global _bridgePendingCode = #()
-global _bridgeTimer = undefined
 
 fn processBridgeQueue =
 (
@@ -158,35 +157,22 @@ fn handleClientV2 clientSocket =
 )
 
 -- -----------------------------------------------------------------------
--- Listener loop (runs on background thread)
+-- Poll tick — called every 50ms on the main thread via timer
 -- -----------------------------------------------------------------------
-fn listenerLoop listener =
+fn _bridgePollTick s e =
 (
-    format "Bridge listener started on port %\n" BRIDGE_PORT
-    while _bridgeRunning do
+    if not _bridgeRunning do return undefined
+    try
     (
-        try
+        if _bridgeListener != undefined and _bridgeListener.Pending() do
         (
-            if listener.Pending() do
-            (
-                local client = listener.AcceptTcpClient()
-                handleClientV2 client
-            )
-            -- sleep 50ms to avoid busy-wait
-            (dotNetClass "System.Threading.Thread").Sleep 50
+            local client = _bridgeListener.AcceptTcpClient()
+            handleClientV2 client
         )
-        catch
-        (
-            if _bridgeRunning do
-                format "Bridge listener error: %\n" (getCurrentException())
-        )
+        processBridgeQueue()
     )
-    listener.Stop()
-    format "Bridge listener stopped.\n"
+    catch ( format "Bridge poll error: %\n" (getCurrentException()) )
 )
-
--- Top-level entry point for the background thread (no closure needed)
-fn _bridgeLoopFn = ( listenerLoop _bridgeListener )
 
 -- -----------------------------------------------------------------------
 -- Public API
@@ -199,29 +185,24 @@ fn startBridgeListener =
         return undefined
     )
 
-    -- Create a 50ms tick timer to flush the code queue on the main thread
-    if _bridgeTimer != undefined do ( _bridgeTimer.enabled = false )
-    _bridgeTimer = dotNetObject "System.Windows.Forms.Timer"
-    _bridgeTimer.Interval = 50
-    dotNet.addEventHandler _bridgeTimer "Tick" (fn s e = processBridgeQueue())
-    _bridgeTimer.Start()
-
-    _bridgePendingCode = #()
-    _bridgeRunning     = true
-
     -- Stop any previous listener still holding the port
     try ( if _bridgeListener != undefined do _bridgeListener.Stop() ) catch ()
     _bridgeListener = undefined
 
-    local ipAny      = (dotNetClass "System.Net.IPAddress").Any
-    local endpoint   = dotNetObject "System.Net.IPEndPoint" ipAny BRIDGE_PORT
-    _bridgeListener  = dotNetObject "System.Net.Sockets.TcpListener" endpoint
+    local ipAny     = (dotNetClass "System.Net.IPAddress").Any
+    local endpoint  = dotNetObject "System.Net.IPEndPoint" ipAny BRIDGE_PORT
+    _bridgeListener = dotNetObject "System.Net.Sockets.TcpListener" endpoint
     _bridgeListener.Start()
 
-    local tsDelegate = dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn
-    _bridgeThread = dotNetObject "System.Threading.Thread" tsDelegate
-    _bridgeThread.IsBackground = true
-    _bridgeThread.Start()
+    _bridgePendingCode = #()
+    _bridgeRunning     = true
+
+    -- Single 50ms timer: polls for incoming connections and flushes the queue
+    if _bridgeTimer != undefined do ( _bridgeTimer.Stop() )
+    _bridgeTimer = dotNetObject "System.Windows.Forms.Timer"
+    _bridgeTimer.Interval = 50
+    dotNet.addEventHandler _bridgeTimer "Tick" _bridgePollTick
+    _bridgeTimer.Start()
 
     format "=== MAXScript GUI Editor Bridge Listener v% started on port % ===\n" BRIDGE_VERSION BRIDGE_PORT
     format "    Stop with: stopBridgeListener()\n"
@@ -231,7 +212,8 @@ fn stopBridgeListener =
 (
     _bridgeRunning = false
     if _bridgeTimer != undefined do ( _bridgeTimer.Stop() ; _bridgeTimer = undefined )
-    format "Bridge listener stopping...\n"
+    try ( if _bridgeListener != undefined do ( _bridgeListener.Stop() ; _bridgeListener = undefined ) ) catch ()
+    format "Bridge listener stopped.\n"
 )
 
 -- Auto-start
