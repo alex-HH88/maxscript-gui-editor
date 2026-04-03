@@ -667,6 +667,11 @@ class MainWindow(QMainWindow):
             code = generate_code(self._model)
             self._code_out.setPlainText(code)
 
+        # In rollout mode append createDialog so the dialog appears in Max
+        if self._model.macro_config.output_mode != "macroscript":
+            rname = self._model.rollout_name
+            code = code + f"\ncreateDialog {rname}"
+
         self._btn_send.setEnabled(False)
         self._btn_send.setText("Sending…")
         self._status.showMessage("Sending code to 3ds Max…")
