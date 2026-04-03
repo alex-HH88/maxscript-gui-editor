@@ -672,6 +672,9 @@ class MainWindow(QMainWindow):
             rname = self._model.rollout_name
             code = code + f"\ncreateDialog {rname}"
 
+        # MAXScript bit.intAsChar doesn't handle tab (byte 9) — use spaces
+        code = code.replace("\t", "    ")
+
         self._btn_send.setEnabled(False)
         self._btn_send.setText("Sending…")
         self._status.showMessage("Sending code to 3ds Max…")

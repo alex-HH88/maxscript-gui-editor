@@ -158,10 +158,12 @@ fn handleClientV2 clientSocket =
         local code = ""
         for i = 1 to payloadLen do
         (
-            local b = netStream.ReadByte()
-            if b < 0 do exit
-            code += bit.intAsChar b
+            local b = netStream.ReadByte() as integer
+            if b == undefined or b < 0 do exit
+            local ch = bit.intAsChar b
+            if ch != undefined do code += ch
         )
+        if code == undefined do code = ""
 
         writer.WriteLine "OK"
         _closeClient clientSocket writer
