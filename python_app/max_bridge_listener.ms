@@ -163,11 +163,7 @@ fn listenerLoop listener =
             if listener.Pending() do
             (
                 local client = listener.AcceptTcpClient()
-                local t = dotNetObject "System.Threading.Thread" \
-                    (dotNetDelegate "System.Threading.ThreadStart" \
-                        (fn _h = ( handleClientV2 client )))
-                t.IsBackground = true
-                t.Start()
+                handleClientV2 client
             )
             -- sleep 50ms to avoid busy-wait
             (dotNetClass "System.Threading.Thread").Sleep 50
