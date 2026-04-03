@@ -724,10 +724,13 @@ class MainWindow(QMainWindow):
             code = generate_code(self._model)
             self._code_out.setPlainText(code)
 
-        # In rollout mode append createDialog so the dialog appears in Max
+        # In rollout mode: clear queue, close existing dialog, open fresh one
         if self._model.macro_config.output_mode != "macroscript":
             rname = self._model.rollout_name
-            code = code + f"\ncreateDialog {rname}"
+            code = (f"_bridgePendingCode = #()\n"
+                    f"try ( destroyDialog {rname} ) catch ()\n"
+                    + code +
+                    f"\ncreateDialog {rname}")
 
         # If rollout title is a dynamic expression, guard any undefined globals
         # e.g. ("vrscene  v" + VRSCENE_TOOLS_VERSION) → prepend guard
