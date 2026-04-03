@@ -90,14 +90,23 @@ global _bridgePendingCode = #()
 
 fn processBridgeQueue =
 (
-    -- Drain any invalid (undefined/empty) entries left from previous sessions
-    while _bridgePendingCode.count > 0 and \
-          (_bridgePendingCode[1] == undefined or _bridgePendingCode[1] == "") do
+    -- Drain invalid entries (\ line continuation not valid in MAXScript)
+    while _bridgePendingCode.count > 0 do
+    (
+        local v = _bridgePendingCode[1]
+        if v != undefined and v != "" do exit
         deleteItem _bridgePendingCode 1
+    )
 
     if _bridgePendingCode.count == 0 do return undefined
     local code = _bridgePendingCode[1]
     deleteItem _bridgePendingCode 1
+
+    -- Debug: print what we're about to execute
+    format "DBG execute: classOf=% len=%\n" (classOf code) \
+        (if code != undefined then code.count else -1)
+
+    if code == undefined do return undefined
     try ( execute code )
     catch ( format "Bridge execute error: %\n" (getCurrentException()) )
 )
