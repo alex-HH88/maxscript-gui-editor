@@ -209,6 +209,7 @@ class RolloutCanvas(QGraphicsView):
         self.setAcceptDrops(True)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMinimumSize(400, 500)
+        self.setFocusPolicy(Qt.StrongFocus)
 
         scene.selectionChanged.connect(self._on_selection_changed)
 
@@ -333,6 +334,59 @@ class RolloutCanvas(QGraphicsView):
 
     def is_select_only(self) -> bool:
         return self._select_only
+
+    # ------------------------------------------------------------------
+    # Keyboard: arrow-key nudge + Tab navigation
+    # ------------------------------------------------------------------
+    def keyPressEvent(self, event):
+        key = event.key()
+        ctrl = event.modifiers() & Qt.ControlModifier
+
+        # --- Arrow key nudge ---
+        step = 1 if ctrl else 10
+        dx, dy = 0, 0
+        if key == Qt.Key_Left:
+            dx = -step
+        elif key == Qt.Key_Right:
+            dx = step
+        elif key == Qt.Key_Up:
+            dy = -step
+        elif key == Qt.Key_Down:
+            dy = step
+
+        if dx or dy:
+            sel = [i for i in self.scene().selectedItems() if isinstance(i, ControlItem)]
+            for item in sel:
+                nx = max(0, item.model.x + dx)
+                ny = max(0, item.model.y + dy)
+                item.model.x = nx
+                item.model.y = ny
+                item.setPos(nx, ny)
+            if sel:
+                self._on_model_changed()
+            return
+
+        # --- Tab / Shift+Tab: cycle selection ---
+        if key == Qt.Key_Tab or key == Qt.Key_Backtab:
+            if self._model is None or not self._model.controls:
+                return
+            ctrls = self._model.controls
+            sel = [i for i in self.scene().selectedItems() if isinstance(i, ControlItem)]
+            if not sel:
+                target = ctrls[0]
+            else:
+                cur = sel[0].model
+                idx = ctrls.index(cur) if cur in ctrls else 0
+                if key == Qt.Key_Backtab or (event.modifiers() & Qt.ShiftModifier):
+                    idx = (idx - 1) % len(ctrls)
+                else:
+                    idx = (idx + 1) % len(ctrls)
+                target = ctrls[idx]
+            self.select_control(target)
+            self.signals.control_selected.emit(target)
+            return
+
+        super().keyPressEvent(event)
 
     # ------------------------------------------------------------------
     def _on_selection_changed(self):
