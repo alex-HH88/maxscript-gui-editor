@@ -97,6 +97,17 @@ fn processBridgeQueue =
     catch ( format "Bridge execute error: %\n" (getCurrentException()) )
 )
 
+fn _closeClient clientSocket writer =
+(
+    try ( writer.Flush() ) catch ()
+    try
+    (
+        local sd = (dotNetClass "System.Net.Sockets.SocketShutdown").Both
+        clientSocket.Client.Shutdown sd
+    ) catch ()
+    try ( clientSocket.Close() ) catch ()
+)
+
 fn handleClientV2 clientSocket =
 (
     try
@@ -112,14 +123,14 @@ fn handleClientV2 clientSocket =
         if header == "-- ping" do
         (
             writer.WriteLine "OK:pong"
-            clientSocket.Close()
+            _closeClient clientSocket writer
             return undefined
         )
 
         if header == undefined or header.count < 8 do
         (
             writer.WriteLine "ERROR:bad_header"
-            clientSocket.Close()
+            _closeClient clientSocket writer
             return undefined
         )
 
@@ -128,7 +139,7 @@ fn handleClientV2 clientSocket =
         if payloadLen == undefined or payloadLen <= 0 do
         (
             writer.WriteLine "ERROR:bad_length"
-            clientSocket.Close()
+            _closeClient clientSocket writer
             return undefined
         )
 
@@ -144,7 +155,7 @@ fn handleClientV2 clientSocket =
 
         local code = (dotNetClass "System.String").new buf 0 totalRead
         writer.WriteLine "OK"
-        clientSocket.Close()
+        _closeClient clientSocket writer
 
         -- Queue for main-thread execution via timer
         append _bridgePendingCode code
