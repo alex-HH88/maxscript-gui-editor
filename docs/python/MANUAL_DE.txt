@@ -1,0 +1,172 @@
+MAXScript GUI Editor — Betriebsanleitung
+=========================================
+Python Edition  |  Kurzreferenz für den täglichen Einsatz
+----------------------------------------------------------
+
+FENSTERAUFBAU
+  ┌─────────────┬──────────────────────────┬──────────────────┐
+  │  Palette    │        Canvas            │   Properties     │
+  │  (Controls) │  (WYSIWYG-Vorschau)      │  (4 Tabs)        │
+  ├─────────────┴──────────────────────────┴──────────────────┤
+  │  Code-Ausgabe          [Generate] [Copy] [▶ Send to Max]  │
+  └───────────────────────────────────────────────────────────┘
+
+  Toolbar (oben): New · Open · Save · Undo · Redo · Delete ·
+                  Duplicate · Generate · Copy · Send to Max ·
+                  Bridge… · [Rollout-Picker]
+
+==============================================================
+  1. NEUES LAYOUT ERSTELLEN
+==============================================================
+
+  a) Ctrl+N  oder  File > New
+  b) Control aus der Palette links per Drag & Drop auf den Canvas
+     ziehen  — oder — Control auswählen und "Add →" klicken.
+  c) Control auf dem Canvas verschieben (Raster-Snap: 4 px).
+  d) Rechts im Tab "Control" Eigenschaften anpassen.
+  e) F5  oder  "Generate Code" → Code erscheint unten.
+  f) Ctrl+Shift+C  → Code in Zwischenablage, fertig.
+
+==============================================================
+  2. VORHANDENE .MS-DATEI ÖFFNEN UND BEARBEITEN
+==============================================================
+
+  a) File > Open .ms File…  (Ctrl+Shift+O)
+     Die Datei wird eingelesen. Alle Rollout-Blöcke werden
+     erkannt; der restliche Code (Funktionen, Variablen,
+     on execute do …) bleibt unberührt.
+
+  b) Hat die Datei mehrere Rollouts (z. B. Haupt-GUI +
+     Settings), erscheint in der Toolbar ein Dropdown zur
+     Auswahl des aktiven Rollouts. Der Wechsel speichert den
+     aktuellen Stand automatisch.
+
+  c) Controls verschieben, Größen ändern, Labels anpassen —
+     alles über Canvas und Properties-Panel.
+
+     ⚠ Event-Handler-Code (das "do (…)" nach jedem Button,
+       Spinner etc.) wird NIEMALS verändert, nur neu eingerückt.
+       Funktionslogik bleibt 100 % erhalten.
+
+  d) Ctrl+Shift+M  oder  File > Save back to .ms
+     Schreibt alle Rollouts in die Originaldatei zurück.
+     Alle anderen Teile der Datei bleiben unverändert.
+
+==============================================================
+  3. CONTROLS VERWALTEN
+==============================================================
+
+  Hinzufügen   Drag & Drop aus der Palette  oder  "Add →"
+  Auswählen    Klick auf dem Canvas
+  Verschieben  Auf dem Canvas ziehen (Snap 4 px)
+  Löschen      Del  oder  Toolbar "Delete"
+  Duplizieren  Ctrl+D  →  Kopie wird 16 px versetzt eingefügt
+  Mehrfachsel. Rubber-Band auf dem Canvas ziehen
+
+  Unterstützte Typen (23):
+    button · checkbutton · checkbox · colorpicker · combobox
+    edittext · groupbox · imgTag · label · listbox · mapbutton
+    materialbutton · multilistbox · pickbutton · progressbar
+    radiobuttons · slider · spinner · timer · bitmap
+    curvecontrol · angle · hyperlink
+
+==============================================================
+  4. PROPERTIES-PANEL (rechts)
+==============================================================
+
+  Tab "Control"
+    Name, Label, Tooltip, Kommentar
+    Position (pos: X/Y), Größe (width/height)
+    Across, Align, Offset, Enabled, Visible
+    Typ-spezifische Felder (Range, Items, Labels, …)
+
+  Tab "Events"
+    Event auswählen (z. B. "pressed", "changed")
+    "+" → neuen Handler hinzufügen
+    Code-Editor: Funktionsrumpf schreiben
+    Beim Speichern als .ms: Code wird 1:1 übernommen
+
+  Tab "Rollout"
+    Name und Titel des Rollouts
+    Breite, Höhe, Position des Dialogs
+
+  Tab "MacroScript"
+    Ausgabemodus: "rollout" (einfacher Block) oder
+                  "macroscript" (vollständiges MacroScript
+                  mit createDialog + Positions-Speicher)
+    Kategorie, Interner Name, Tooltip, Button-Text
+
+==============================================================
+  5. SPEICHERN UND LADEN
+==============================================================
+
+  Ctrl+S          Layout speichern (JSON oder .ms)
+  Ctrl+O          JSON-Layout öffnen
+  Ctrl+Shift+O    .ms-Datei öffnen (round-trip)
+  Ctrl+Shift+M    Änderungen in .ms-Datei zurückschreiben
+  Ctrl+Shift+S    Speichern unter (JSON)
+
+  JSON-Format: lesbar, versionierbar mit Git, plattformübergreifend.
+  .ms-Round-Trip: Originaldatei wird nur im Rollout-Block verändert.
+
+==============================================================
+  6. CODE GENERIEREN UND SENDEN
+==============================================================
+
+  F5                 Code generieren (erscheint im unteren Panel)
+  Ctrl+Shift+C       Code in Zwischenablage kopieren
+  F6                 Code direkt an 3ds Max senden (TCP-Bridge)
+
+  Ausgabemodi (Tab "MacroScript" > "Output mode"):
+    rollout       Nur der rollout-Block — z. B. für fileIn
+    macroscript   Vollständiges macroScript mit Toolbar-Button
+
+==============================================================
+  7. TCP-BRIDGE ZU 3DS MAX
+==============================================================
+
+  Zweck: Generierten Code direkt in 3ds Max ausführen,
+         ohne Copy & Paste.
+
+  Schritt 1 — In 3ds Max:
+    Scripting > Run Script > max_bridge_listener.ms
+    → Bestätigung im MAXScript Listener:
+      === Bridge started on port 27120 ===
+
+  Schritt 2 — Im Editor:
+    Code > Bridge Settings… — Host/Port prüfen (Standard: 127.0.0.1:27120)
+    "⬤ Ping" → grün = verbunden
+
+  Schritt 3:
+    F6  oder  "▶ Send to Max"
+    → Code läuft innerhalb ~50 ms in 3ds Max
+
+  Bridge beenden (in 3ds Max):
+    stopBridgeListener()
+
+==============================================================
+  8. TASTENKÜRZEL — ÜBERSICHT
+==============================================================
+
+  Ctrl+N          Neues Layout
+  Ctrl+O          JSON öffnen
+  Ctrl+S          Speichern
+  Ctrl+Shift+S    Speichern unter
+  Ctrl+Shift+O    .ms-Datei öffnen
+  Ctrl+Shift+M    In .ms zurückschreiben
+  ─────────────────────────────
+  Ctrl+Z          Undo  (50 Stufen)
+  Ctrl+Y          Redo
+  Del             Control löschen
+  Ctrl+D          Control duplizieren
+  ─────────────────────────────
+  F5              Code generieren
+  Ctrl+Shift+C    Code kopieren
+  F6              Code an 3ds Max senden
+  ─────────────────────────────
+  Ctrl+Q          Beenden
+
+==============================================================
+  SUPPORT / QUELLCODE
+==============================================================
+  https://github.com/alex-HH88/maxscript-gui-editor

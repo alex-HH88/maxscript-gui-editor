@@ -1,0 +1,174 @@
+MAXScript GUI Editor — Instrukcja obsługi
+==========================================
+Wersja Python  |  Skrócony przewodnik do codziennego użytku
+------------------------------------------------------------
+
+UKŁAD OKNA
+  ┌─────────────┬──────────────────────────┬──────────────────┐
+  │  Paleta     │        Płótno            │   Właściwości    │
+  │  (Kontrolki)│  (Podgląd WYSIWYG)       │  (4 zakładki)    │
+  ├─────────────┴──────────────────────────┴──────────────────┤
+  │  Wyjście kodu      [Generate] [Copy] [▶ Send to Max]      │
+  └───────────────────────────────────────────────────────────┘
+
+  Pasek narzędzi (góra): New · Open · Save · Undo · Redo ·
+    Delete · Duplicate · Generate · Copy · Send to Max ·
+    Bridge… · [Wybór rolloutu]
+
+==============================================================
+  1. TWORZENIE NOWEGO PROJEKTU
+==============================================================
+
+  a) Ctrl+N  lub  File > New
+  b) Przeciągnij kontrolkę z lewej palety na płótno
+     — lub — wybierz typ i kliknij „Add →".
+  c) Przeciągaj kontrolki po płótnie, aby je przesuwać
+     (przyciąganie do siatki: 4 px).
+  d) Edytuj właściwości w zakładce „Control" po prawej.
+  e) F5  lub  „Generate Code" → kod pojawi się na dole.
+  f) Ctrl+Shift+C  → kopiuj kod do schowka, gotowe.
+
+==============================================================
+  2. OTWIERANIE I EDYCJA ISTNIEJĄCEGO PLIKU .MS
+==============================================================
+
+  a) File > Open .ms File…  (Ctrl+Shift+O)
+     Plik jest wczytywany. Wszystkie bloki rollout są
+     wykrywane; reszta kodu (funkcje, zmienne, on execute …)
+     pozostaje nienaruszona.
+
+  b) Jeśli plik zawiera kilka rolloutów (np. główne GUI +
+     Ustawienia), w pasku narzędzi pojawia się lista
+     rozwijana do przełączania między nimi. Przełączenie
+     automatycznie zapisuje bieżący stan.
+
+  c) Przesuwaj kontrolki, zmieniaj rozmiary, aktualizuj
+     etykiety — przez płótno i panel właściwości.
+
+     ⚠ Kod obsługi zdarzeń (blok „do (…)" po każdym
+       przycisku, spinnerze itp.) NIGDY nie jest
+       modyfikowany — cała logika pozostaje w 100 % niezmieniona.
+
+  d) Ctrl+Shift+M  lub  File > Save back to .ms
+     Zapisuje wszystkie rollouty z powrotem do oryginalnego
+     pliku. Reszta pliku pozostaje bez zmian.
+
+==============================================================
+  3. ZARZĄDZANIE KONTROLKAMI
+==============================================================
+
+  Dodaj        Przeciągnij z palety  lub  kliknij „Add →"
+  Zaznacz      Kliknij na płótnie
+  Przesuń      Przeciągnij na płótnie (siatka 4 px)
+  Usuń         Del  lub  „Delete" na pasku narzędzi
+  Duplikuj     Ctrl+D  →  kopia przesunieta o 16 px
+  Wielokrotne  Zaznacz przez przeciągnięcie (rubber-band)
+
+  Obsługiwane typy (23):
+    button · checkbutton · checkbox · colorpicker · combobox
+    edittext · groupbox · imgTag · label · listbox · mapbutton
+    materialbutton · multilistbox · pickbutton · progressbar
+    radiobuttons · slider · spinner · timer · bitmap
+    curvecontrol · angle · hyperlink
+
+==============================================================
+  4. PANEL WŁAŚCIWOŚCI (prawa strona)
+==============================================================
+
+  Zakładka „Control"
+    Nazwa, etykieta, tooltip, komentarz
+    Pozycja (pos: X/Y), rozmiar (width/height)
+    Across, align, offset, enabled, visible
+    Pola typowe dla danego typu (range, items, labels, …)
+
+  Zakładka „Events"
+    Wybierz zdarzenie (np. „pressed", „changed")
+    „+" → dodaj nowy handler
+    Edytor kodu: napisz treść handlera
+    Przy zapisie do .ms: kod jest przepisywany dosłownie
+
+  Zakładka „Rollout"
+    Nazwa i tytuł rolloutu
+    Szerokość, wysokość i pozycja okna dialogowego
+
+  Zakładka „MacroScript"
+    Tryb wyjścia: „rollout" (zwykły blok) lub
+                  „macroscript" (pełny MacroScript z
+                  createDialog + pamięcią pozycji okna)
+    Kategoria, nazwa wewnętrzna, tooltip, tekst przycisku
+
+==============================================================
+  5. ZAPISYWANIE I WCZYTYWANIE
+==============================================================
+
+  Ctrl+S          Zapisz projekt (JSON lub .ms)
+  Ctrl+O          Otwórz projekt JSON
+  Ctrl+Shift+O    Otwórz plik .ms (tryb round-trip)
+  Ctrl+Shift+M    Zapisz zmiany z powrotem do pliku .ms
+  Ctrl+Shift+S    Zapisz jako (JSON)
+
+  Format JSON: czytelny, kompatybilny z Git, przenośny.
+  Round-trip .ms: modyfikowane są tylko bloki rollout.
+
+==============================================================
+  6. GENEROWANIE I WYSYŁANIE KODU
+==============================================================
+
+  F5                 Generuj kod (pojawia się w dolnym panelu)
+  Ctrl+Shift+C       Kopiuj kod do schowka
+  F6                 Wyślij kod bezpośrednio do 3ds Max (most TCP)
+
+  Tryby wyjścia (zakładka „MacroScript" > „Output mode"):
+    rollout       Tylko blok rollout — np. do fileIn
+    macroscript   Pełny macroScript z przyciskiem na pasku narzędzi
+
+==============================================================
+  7. MOST TCP DO 3DS MAX
+==============================================================
+
+  Cel: wykonanie wygenerowanego kodu bezpośrednio w 3ds Max
+       bez kopiowania i wklejania.
+
+  Krok 1 — W 3ds Max:
+    Scripting > Run Script > max_bridge_listener.ms
+    → Potwierdzenie w MAXScript Listener:
+      === Bridge started on port 27120 ===
+
+  Krok 2 — W edytorze:
+    Code > Bridge Settings… — sprawdź host/port
+      (domyślnie: 127.0.0.1:27120)
+    „⬤ Ping" → zielony = połączono
+
+  Krok 3:
+    F6  lub  „▶ Send to Max"
+    → kod działa w 3ds Max w ciągu ~50 ms
+
+  Zatrzymaj most (w 3ds Max):
+    stopBridgeListener()
+
+==============================================================
+  8. SKRÓTY KLAWISZOWE — PRZEGLĄD
+==============================================================
+
+  Ctrl+N          Nowy projekt
+  Ctrl+O          Otwórz JSON
+  Ctrl+S          Zapisz
+  Ctrl+Shift+S    Zapisz jako
+  Ctrl+Shift+O    Otwórz plik .ms
+  Ctrl+Shift+M    Zapisz z powrotem do .ms
+  ─────────────────────────────
+  Ctrl+Z          Cofnij  (50 poziomów)
+  Ctrl+Y          Ponów
+  Del             Usuń kontrolkę
+  Ctrl+D          Duplikuj kontrolkę
+  ─────────────────────────────
+  F5              Generuj kod
+  Ctrl+Shift+C    Kopiuj kod
+  F6              Wyślij kod do 3ds Max
+  ─────────────────────────────
+  Ctrl+Q          Wyjście
+
+==============================================================
+  WSPARCIE / KOD ŹRÓDŁOWY
+==============================================================
+  https://github.com/alex-HH88/maxscript-gui-editor
