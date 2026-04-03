@@ -255,6 +255,7 @@ class MainWindow(QMainWindow):
         # Signals
         self._canvas.signals.control_selected.connect(self._on_ctrl_selected)
         self._canvas.signals.model_changed.connect(self._on_model_changed)
+        self._canvas.signals.move_finished.connect(self._on_move_finished)
         self._props.model_changed.connect(self._on_props_changed)
 
         # Status bar
@@ -433,6 +434,10 @@ class MainWindow(QMainWindow):
             self._status.showMessage("Ready")
 
     def _on_model_changed(self):
+        self._dirty = True
+        self._update_title()
+
+    def _on_move_finished(self):
         self._push_undo()
         self._dirty = True
         self._update_title()

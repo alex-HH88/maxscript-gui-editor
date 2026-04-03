@@ -61,10 +61,12 @@ def _snap(v: float, grid: int = _GRID_SIZE) -> int:
 class ControlItem(QGraphicsItem):
     """Visual representation of one ControlModel on the canvas."""
 
-    def __init__(self, model: ControlModel, scene_changed_cb: Callable):
+    def __init__(self, model: ControlModel, scene_changed_cb: Callable,
+                 scene_changed_finished_cb: Callable):
         super().__init__()
         self.model = model
         self._scene_changed = scene_changed_cb
+        self._scene_changed_finished = scene_changed_finished_cb
         self.setFlags(
             QGraphicsItem.ItemIsMovable |
             QGraphicsItem.ItemIsSelectable |
@@ -176,6 +178,7 @@ class ControlItem(QGraphicsItem):
         self.setPos(sx, sy)
         self.model.x = max(0, sx)
         self.model.y = max(0, sy)
+        self._scene_changed_finished()
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +187,7 @@ class ControlItem(QGraphicsItem):
 class CanvasSignals(QObject):
     control_selected = Signal(object)   # ControlModel or None
     model_changed    = Signal()
+    move_finished    = Signal()          # emitted on mouse-release after drag
 
 
 # ---------------------------------------------------------------------------
@@ -249,7 +253,7 @@ class RolloutCanvas(QGraphicsView):
             self._add_item(ctrl)
 
     def _add_item(self, ctrl: ControlModel) -> ControlItem:
-        item = ControlItem(ctrl, self._on_model_changed)
+        item = ControlItem(ctrl, self._on_model_changed, self._on_move_finished)
         if self._select_only:
             item.setFlag(QGraphicsItem.ItemIsMovable, False)
         self.scene().addItem(item)
@@ -364,6 +368,7 @@ class RolloutCanvas(QGraphicsView):
                 item.setPos(nx, ny)
             if sel:
                 self._on_model_changed()
+                self._on_move_finished()
             return
 
         # --- Tab / Shift+Tab: cycle selection ---
@@ -395,6 +400,9 @@ class RolloutCanvas(QGraphicsView):
 
     def _on_model_changed(self):
         self.signals.model_changed.emit()
+
+    def _on_move_finished(self):
+        self.signals.move_finished.emit()
 
     # ------------------------------------------------------------------
     # Drag & Drop from the control palette
