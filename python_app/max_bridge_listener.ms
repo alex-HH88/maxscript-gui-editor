@@ -90,6 +90,11 @@ global _bridgePendingCode = #()
 
 fn processBridgeQueue =
 (
+    -- Drain any invalid (undefined/empty) entries left from previous sessions
+    while _bridgePendingCode.count > 0 and \
+          (_bridgePendingCode[1] == undefined or _bridgePendingCode[1] == "") do
+        deleteItem _bridgePendingCode 1
+
     if _bridgePendingCode.count == 0 do return undefined
     local code = _bridgePendingCode[1]
     deleteItem _bridgePendingCode 1
