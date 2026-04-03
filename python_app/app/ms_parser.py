@@ -298,10 +298,13 @@ def _parse_rollout_body(
     lines: list[str],
     body_start: int,
     body_end: int,
+    rollout_name: str = "",
 ) -> tuple[list[ControlModel], dict[tuple[str, str], str], list[str], list[str], list[str]]:
     """
     Parse lines[body_start:body_end] as the content of a rollout block.
     Returns (controls, event_bodies, extra_lines, orphaned_events_raw, warnings).
+    rollout_name is used to suppress warnings for expected rollout-level handlers
+    like 'on vrsceneExportRollout open do'.
     """
     controls: list[ControlModel] = []
     event_bodies: dict[tuple[str, str], str] = {}
@@ -385,10 +388,13 @@ def _parse_rollout_body(
             else:
                 # Orphaned: control not declared yet (or at all)
                 orphaned_events.append(handler_header + orphan_suffix)
-                warnings.append(
-                    f"Event 'on {ctrl_name} {event_name}' has no matching control "
-                    f"— written verbatim."
-                )
+                # Rollout-level handlers (on rolloutName event do) are expected —
+                # no warning needed, they are always written verbatim.
+                if ctrl_name.lower() != rollout_name.lower():
+                    warnings.append(
+                        f"Event 'on {ctrl_name} {event_name}' has no matching control "
+                        f"— written verbatim."
+                    )
             continue
 
         # control declaration
@@ -486,7 +492,7 @@ def parse_ms_file(path: str) -> ParsedMS:
 
         # parse body
         controls, event_bodies, extra_lines, orphaned, warnings = \
-            _parse_rollout_body(lines, body_start, rollout_end)
+            _parse_rollout_body(lines, body_start, rollout_end, rollout_name=rname)
         model.controls = controls
 
         seg = RolloutSegment(
