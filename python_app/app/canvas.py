@@ -198,6 +198,9 @@ class RolloutCanvas(QGraphicsView):
         self._model: Optional[RolloutModel] = None
         self._items: dict[int, ControlItem] = {}   # id(model) -> item
 
+        self._zoom: float = 1.0
+        self._select_only: bool = False
+
         scene = QGraphicsScene(self)
         scene.setBackgroundBrush(QBrush(QColor("#1E1E1E")))
         self.setScene(scene)
@@ -246,6 +249,8 @@ class RolloutCanvas(QGraphicsView):
 
     def _add_item(self, ctrl: ControlModel) -> ControlItem:
         item = ControlItem(ctrl, self._on_model_changed)
+        if self._select_only:
+            item.setFlag(QGraphicsItem.ItemIsMovable, False)
         self.scene().addItem(item)
         self._items[id(ctrl)] = item
         return item
@@ -291,6 +296,43 @@ class RolloutCanvas(QGraphicsView):
 
     def refresh_all(self):
         self._rebuild()
+
+    # ------------------------------------------------------------------
+    # Zoom
+    # ------------------------------------------------------------------
+    def set_zoom(self, factor: float):
+        self._zoom = max(0.5, min(4.0, factor))
+        from PySide6.QtGui import QTransform
+        self.setTransform(QTransform.fromScale(self._zoom, self._zoom))
+
+    def zoom_in(self):
+        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
+        nxt = next((s for s in steps if s > self._zoom + 0.01), steps[-1])
+        self.set_zoom(nxt)
+
+    def zoom_out(self):
+        steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0]
+        prv = next((s for s in reversed(steps) if s < self._zoom - 0.01), steps[0])
+        self.set_zoom(prv)
+
+    def zoom_reset(self):
+        self.set_zoom(1.0)
+
+    def current_zoom(self) -> float:
+        return self._zoom
+
+    # ------------------------------------------------------------------
+    # Select-Only mode (disables drag/move)
+    # ------------------------------------------------------------------
+    def set_select_only(self, enabled: bool):
+        self._select_only = enabled
+        movable = not enabled
+        for item in self.scene().items():
+            if isinstance(item, ControlItem):
+                item.setFlag(QGraphicsItem.ItemIsMovable, movable)
+
+    def is_select_only(self) -> bool:
+        return self._select_only
 
     # ------------------------------------------------------------------
     def _on_selection_changed(self):

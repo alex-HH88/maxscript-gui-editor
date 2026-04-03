@@ -346,6 +346,44 @@ class MainWindow(QMainWindow):
         self._tb_rollout_label.setVisible(False)
         self._tb_rollout_picker.setVisible(False)
 
+        # --- Zoom controls ---
+        tb.addSeparator()
+        tb.addWidget(QLabel("  Zoom: "))
+        self._zoom_out_btn = tb.addAction("−", self._zoom_out)
+        self._zoom_label = QLabel("100%")
+        self._zoom_label.setMinimumWidth(36)
+        self._zoom_label.setAlignment(Qt.AlignCenter)
+        tb.addWidget(self._zoom_label)
+        self._zoom_in_btn  = tb.addAction("+", self._zoom_in)
+        tb.addAction("1:1", self._zoom_reset)
+
+        # --- Select-Only toggle ---
+        tb.addSeparator()
+        self._select_only_btn = QPushButton("⊹ Select")
+        self._select_only_btn.setCheckable(True)
+        self._select_only_btn.setToolTip("Select-Only mode — no accidental drag/move")
+        self._select_only_btn.setStyleSheet(
+            "QPushButton:checked { background:#6A3A00; color:#FFB347; font-weight:bold; }"
+        )
+        self._select_only_btn.clicked.connect(self._toggle_select_only)
+        tb.addWidget(self._select_only_btn)
+
+    def _zoom_in(self):
+        self._canvas.zoom_in()
+        self._zoom_label.setText(f"{int(self._canvas.current_zoom()*100)}%")
+
+    def _zoom_out(self):
+        self._canvas.zoom_out()
+        self._zoom_label.setText(f"{int(self._canvas.current_zoom()*100)}%")
+
+    def _zoom_reset(self):
+        self._canvas.zoom_reset()
+        self._zoom_label.setText("100%")
+
+    def _toggle_select_only(self, checked: bool):
+        self._canvas.set_select_only(checked)
+        self._select_only_btn.setText("⊹ Select  ON" if checked else "⊹ Select")
+
     # ------------------------------------------------------------------
     # Undo / Redo
     # ------------------------------------------------------------------
