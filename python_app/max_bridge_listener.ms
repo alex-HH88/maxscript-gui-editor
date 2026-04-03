@@ -9,9 +9,11 @@
 
 global BRIDGE_VERSION = "1.15"
 global BRIDGE_PORT    = 27120
-global _bridgeThread   = undefined
-global _bridgeListener = undefined
-global _bridgeRunning  = false
+
+-- Preserve existing instances across re-FileIn so we can stop them cleanly
+if not (globalVars.isGlobal "_bridgeThread")   do global _bridgeThread   = undefined
+if not (globalVars.isGlobal "_bridgeListener") do global _bridgeListener = undefined
+if not (globalVars.isGlobal "_bridgeRunning")  do global _bridgeRunning  = false
 
 -- -----------------------------------------------------------------------
 -- Protocol handler (runs on a background .NET thread)
@@ -212,7 +214,7 @@ fn startBridgeListener =
     _bridgeListener  = dotNetObject "System.Net.Sockets.TcpListener" endpoint
     _bridgeListener.Start()
 
-    local tsDelegate = dotNetDelegate "System.Threading.ThreadStart" _bridgeLoopFn
+    local tsDelegate = dotNet.createDelegate "System.Threading.ThreadStart" _bridgeLoopFn
     _bridgeThread = dotNetObject "System.Threading.Thread" tsDelegate
     _bridgeThread.IsBackground = true
     _bridgeThread.Start()
