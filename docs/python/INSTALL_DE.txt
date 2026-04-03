@@ -1,126 +1,72 @@
-MAXScript GUI Editor — Python Edition
-======================================
-Standalone Desktop-App mit WYSIWYG-Canvas & TCP-Bridge zu 3ds Max
-------------------------------------------------------------------
+MAXScript GUI Editor v1.18 — Installationsanleitung (Windows)
+==============================================================
 
 VORAUSSETZUNGEN
-  - Python 3.9 oder neuer  (https://www.python.org/downloads/)
-    → Windows: bei der Installation "Add Python to PATH" aktivieren
-  - PySide6  (wird vom Installer automatisch installiert)
-  - Für die TCP-Bridge: 3ds Max 2022 oder neuer (optional)
+---------------
+  • Windows 10 / 11
+  • Python 3.9 oder neuer
+      https://www.python.org/downloads/
+      → Installer-Option "Add Python to PATH" aktivieren
+  • 3ds Max 2022 oder neuer  (nur für TCP-Bridge, optional)
 
-INSTALLATION — WINDOWS
-  1. ZIP  maxscript-gui-editor-python-<version>.zip  entpacken.
-  2. Doppelklick auf  install.bat.
+
+TEIL 1 — PYTHON APP INSTALLIEREN
+---------------------------------
+  1. ZIP-Datei  maxscript-gui-editor-python-1.18.zip  entpacken.
+
+  2. Im entpackten Ordner  install.bat  doppelklicken.
+
   3. Das Skript führt automatisch aus:
-       • Python-Version prüfen
-       • Virtuelle Umgebung erstellen unter:
+       • Python-Version prüfen (mind. 3.9)
+       • Virtuelle Umgebung anlegen:
            %LOCALAPPDATA%\MAXScriptGUIEditor\
        • PySide6 installieren
-       • Desktop-Shortcut und Startmenü-Eintrag anlegen
-  4. Fertig — App über Desktop-Shortcut starten.
+       • Desktop-Shortcut erstellen
+       • Startmenü-Eintrag anlegen
 
-INSTALLATION — LINUX
-  1. ZIP entpacken.
-  2. Terminal im entpackten Ordner öffnen:
-       bash install.sh
-  3. Das Skript erstellt:
-       • Virtuelle Umgebung:  ~/.local/share/maxscript-gui-editor/
-       • Starter:             ~/.local/bin/maxscript-gui-editor
-       • Anwendungsmenü-Eintrag (.desktop)
-  4. Starten:  maxscript-gui-editor  oder über das Anwendungsmenü.
+  4. App über den Desktop-Shortcut "MAXScript GUI Editor" starten.
 
-INSTALLATION — MACOS
-  1. ZIP entpacken.
-  2. Terminal im entpackten Ordner öffnen:
-       bash install.sh
-  3. Das Skript erstellt:
-       • Virtuelle Umgebung:  ~/.local/share/maxscript-gui-editor/
-       • Starter:             ~/.local/bin/maxscript-gui-editor
-       • App-Bundle:          ~/Applications/MAXScript GUI Editor.app
-  4. Starten: App-Bundle doppelklicken oder  maxscript-gui-editor  im Terminal.
 
-MANUELL STARTEN (ohne Installer)
-  pip install PySide6
-  python main.py
+TEIL 2 — 3DS MAX BRIDGE-LISTENER INSTALLIEREN  (optional)
+----------------------------------------------------------
+Ermöglicht das direkte Senden von generiertem Code an 3ds Max.
 
-BEDIENUNG
-  Linkes Panel
-    Control-Palette    → Control-Typ per Drag & Drop auf den Canvas ziehen
-                         oder "Add →"-Button klicken
-    "Delete"-Button    → ausgewähltes Control löschen
+  1. Datei  max_bridge_listener.ms  aus dem entpackten ZIP-Ordner
+     an einen festen Speicherort kopieren, z. B.:
+       C:\MaxScripts\max_bridge_listener.ms
 
-  Canvas (Mitte)
-    WYSIWYG-Vorschau   → Controls durch Ziehen verschieben (Snap: 4 px)
-    Gitterpunkte       → zeigen das 4-px-Raster
-    Rollout-Rahmen     → grauer Bereich = tatsächliche Rollout-Größe
+  2. In 3ds Max einmalig ausführen:
+       Scripting > Run Script > max_bridge_listener.ms auswählen
 
-  Rechtes Panel — 4 Tabs
-    Control            → Name, Label, Position, Größe, Typ-Eigenschaften
-    Events             → Event-Handler hinzufügen / bearbeiten / entfernen
-    Rollout            → Rollout-Name, Titel, Breite, Position
-    MacroScript        → Ausgabemodus, Kategorie, interner Name, Tooltip
+     Der MAXScript Listener zeigt nach dem Start:
+       === MAXScript GUI Editor Bridge Listener v1.18 started on port 27120 ===
 
-  Unterer Code-Bereich
-    "Generate Code"        → MAXScript-Code anzeigen (F5)
-    "Copy to Clipboard"    → Code in Zwischenablage (Ctrl+Shift+C)
-    "▶ Send to Max"        → Code direkt zu 3ds Max senden (F6)
-    "⬤ Ping"               → Verbindung zur TCP-Bridge testen
+  3. Optional — automatischen Start einrichten:
+       Datei nach  %LOCALAPPDATA%\Autodesk\3dsMax\<Version>\ENU\scripts\startup\
+       kopieren. Dann startet der Listener automatisch mit 3ds Max.
 
-  Tastenkürzel
-    Ctrl+Z / Ctrl+Y    Undo / Redo (50 Stufen)
-    F5                 Code generieren
-    F6                 Code an 3ds Max senden
-    Ctrl+Shift+C       Code in Zwischenablage kopieren
-    Ctrl+D             Ausgewähltes Control duplizieren
-    Del                Ausgewähltes Control löschen
-    Ctrl+S             Speichern
-    Ctrl+O             Öffnen
-    Ctrl+N             Neues Layout
+  4. Verbindung im GUI Editor testen:
+       Code > Bridge Settings…  — Standard: 127.0.0.1 : 27120
+       Schaltfläche "⬤ Ping" klicken — wird grün bei Erfolg.
 
-SPEICHERN / LADEN
-  Datei > Save (Ctrl+S)   → Layout als .json speichern
-  Datei > Open (Ctrl+O)   → gespeichertes Layout laden
-  Format: JSON — lesbar, versionierbar mit Git, plattformübergreifend portabel
+  Listener manuell beenden (MAXScript Listener in 3ds Max):
+       stopBridgeListener()
 
-AUSGABEMODI
-  Rollout-only   → einfacher rollout-Block, direkt verwendbar
-  MacroScript    → vollständiges macroScript mit createDialog,
-                   Positions-Speicher (persistent global) und isChecked
 
-TCP-BRIDGE — CODE DIREKT IN 3DS MAX SENDEN
-  Schritt 1 — Listener in 3ds Max starten:
-    Scripting > Run Script > max_bridge_listener.ms wählen
-    MAXScript Listener zeigt:
-      === MAXScript Bridge Listener started on port 27120 ===
+DEINSTALLATION
+--------------
+  • Virtuelle Umgebung löschen:  %LOCALAPPDATA%\MAXScriptGUIEditor\
+  • Desktop-Shortcut manuell löschen
+  • Startmenü-Eintrag:  Rechtsklick > Deinstallieren
 
-  Schritt 2 — Verbinden:
-    Code > Bridge Settings… — Host und Port prüfen
-      Standard: 127.0.0.1 : 27120
-    "⬤ Ping" klicken — wird grün bei Erfolg
 
-  Schritt 3 — Senden:
-    "▶ Send to Max" klicken oder F6 drücken
-    Code wird innerhalb ~50 ms in 3ds Max ausgeführt
-
-  Listener beenden (in 3ds Max):
-    stopBridgeListener()
-
-STANDALONE EXE ERSTELLEN (kein Python beim Endnutzer nötig)
+STANDALONE EXE  (optional, kein Python beim Endnutzer nötig)
+------------------------------------------------------------
   pip install pyinstaller
   pyinstaller maxscript_gui_editor.spec
-  → Ausgabe: dist\MAXScriptGUIEditor\MAXScriptGUIEditor.exe
+  → Ausgabe:  dist\MAXScriptGUIEditor\MAXScriptGUIEditor.exe
 
-DEINSTALLATION — WINDOWS
-  - Ordner löschen:  %LOCALAPPDATA%\MAXScriptGUIEditor\
-  - Desktop-Shortcut manuell löschen.
-  - Startmenü-Eintrag: Rechtsklick > Deinstallieren.
 
-DEINSTALLATION — LINUX / MACOS
-  rm -rf ~/.local/share/maxscript-gui-editor/
-  rm -f  ~/.local/bin/maxscript-gui-editor
-  rm -f  ~/.local/share/applications/maxscript-gui-editor.desktop   (Linux)
-  rm -rf ~/Applications/MAXScript\ GUI\ Editor.app                  (macOS)
-
-SUPPORT / QUELLCODE
+QUELLCODE / SUPPORT
+-------------------
   https://github.com/alex-HH88/maxscript-gui-editor
