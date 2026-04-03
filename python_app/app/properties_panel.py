@@ -123,7 +123,7 @@ class EventHandlerEditor(QWidget):
         self._building = False
 
     def _on_list_sel(self, row: int):
-        if self._ctrl is None or row < 0:
+        if self._ctrl is None or row < 0 or row >= len(self._ctrl.event_handlers):
             return
         self._building = True
         eh = self._ctrl.event_handlers[row]

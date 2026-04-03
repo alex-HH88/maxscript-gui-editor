@@ -37,6 +37,12 @@ def _write_rollout_segment(seg: RolloutSegment) -> str:
                 body += '\n'
             lines.append(body)
 
+    # orphaned event handlers (no matching control) — verbatim
+    for raw in seg.orphaned_events:
+        if not raw.endswith('\n'):
+            raw += '\n'
+        lines.append(raw)
+
     # extra lines (comments, locals)
     for raw in seg.extra_lines:
         lines.append(raw)

@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QMimeData, QSize, Signal
+from PySide6.QtCore import Qt, QMimeData, QSize, Signal, QObject
 from PySide6.QtGui import (
     QAction, QDrag, QFont, QKeySequence, QColor,
 )
@@ -31,6 +31,14 @@ from .properties_panel import PropertiesPanel
 from .code_generator import generate_code
 from .ms_parser import parse_ms_file, ParsedMS
 from .ms_writer import write_ms_file
+
+
+# ---------------------------------------------------------------------------
+# Thread-safe bridge result dispatcher (Fix Bug #5 / #6)
+# ---------------------------------------------------------------------------
+class _BridgeResult(QObject):
+    ok  = Signal(str)
+    err = Signal(str)
 
 
 _STYLE = """
@@ -142,6 +150,7 @@ class MainWindow(QMainWindow):
         self._bridge = MaxBridge(self._bridge_config)
         self._load_bridge_config()
         self._parsed_ms: Optional[ParsedMS] = None   # active .ms round-trip state
+        self._active_rollout_idx: int = 0             # Fix Bug #9/10
 
         self._init_ui()
         self._init_menu()
@@ -542,13 +551,15 @@ class MainWindow(QMainWindow):
             self._undo_stack.clear()
             self._redo_stack.clear()
 
-            # populate rollout picker
+            # populate rollout picker (Fix Bug #7: try/finally ensures blockSignals reset)
             self._tb_rollout_picker.blockSignals(True)
-            self._tb_rollout_picker.clear()
-            for seg in segs:
-                label = f"{seg.model.rollout_name}  ({len(seg.model.controls)} controls)"
-                self._tb_rollout_picker.addItem(label)
-            self._tb_rollout_picker.blockSignals(False)
+            try:
+                self._tb_rollout_picker.clear()
+                for seg in segs:
+                    label = f"{seg.model.rollout_name}  ({len(seg.model.controls)} controls)"
+                    self._tb_rollout_picker.addItem(label)
+            finally:
+                self._tb_rollout_picker.blockSignals(False)
 
             show_picker = len(segs) > 1
             self._tb_rollout_label.setVisible(show_picker)
@@ -565,7 +576,10 @@ class MainWindow(QMainWindow):
 
     def _load_rollout_segment(self, idx: int):
         segs = self._parsed_ms.rollout_segments
+        if idx < 0 or idx >= len(segs):   # Fix Bug #2
+            return
         seg = segs[idx]
+        self._active_rollout_idx = idx     # Fix Bug #9/10
         self._model = seg.model
         self._reload_all()
         n = len(segs)
@@ -587,7 +601,7 @@ class MainWindow(QMainWindow):
         """Write self._model back into the active RolloutSegment."""
         if self._parsed_ms is None:
             return
-        idx = self._tb_rollout_picker.currentIndex()
+        idx = self._active_rollout_idx   # Fix Bug #9/10: use tracked idx, not currentIndex()
         segs = self._parsed_ms.rollout_segments
         if 0 <= idx < len(segs):
             segs[idx].model = self._model
@@ -655,18 +669,19 @@ class MainWindow(QMainWindow):
         self._btn_send.setText("Sending…")
         self._status.showMessage("Sending code to 3ds Max…")
 
-        def on_ok(resp: str):
+        # Fix Bug #5/#6: signals cross thread boundary safely — no direct widget calls
+        result = _BridgeResult(self)
+
+        def _restore():
             self._btn_send.setEnabled(True)
             self._btn_send.setText("▶  Send to Max")
-            self._status.showMessage(f"3ds Max: {resp}")
 
-        def on_err(msg: str):
-            self._btn_send.setEnabled(True)
-            self._btn_send.setText("▶  Send to Max")
-            self._status.showMessage("Bridge error — see dialog")
-            QMessageBox.warning(self, "Bridge Error", msg)
+        result.ok.connect(lambda resp: (_restore(), self._status.showMessage(f"3ds Max: {resp}")))
+        result.err.connect(lambda msg: (_restore(),
+                                        self._status.showMessage("Bridge error — see dialog"),
+                                        QMessageBox.warning(self, "Bridge Error", msg)))
 
-        self._bridge.send_async(code, on_ok, on_err)
+        self._bridge.send_async(code, result.ok.emit, result.err.emit)
 
     def _ping_max(self):
         self._status.showMessage("Pinging 3ds Max…")

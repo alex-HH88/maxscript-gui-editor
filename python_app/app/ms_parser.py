@@ -33,6 +33,8 @@ class RolloutSegment:
     event_bodies: dict[tuple[str, str], str] = field(default_factory=dict)
     # Non-control, non-event lines inside the rollout body (comments, locals)
     extra_lines: list[str] = field(default_factory=list)
+    # Orphaned event handlers (no matching control found) — written verbatim
+    orphaned_events: list[str] = field(default_factory=list)
     parse_warnings: list[str] = field(default_factory=list)
 
 
@@ -71,9 +73,15 @@ _ON_RE = re.compile(
 
 
 def _unquote(s: str) -> str:
+    """Unquote a MAXScript string literal, handling escape sequences."""
     s = s.strip()
-    if s.startswith('"') and s.endswith('"'):
-        return s[1:-1].replace('\\"', '"')
+    if s.startswith('"') and s.endswith('"') and len(s) >= 2:
+        return (s[1:-1]
+                .replace('\\\\"', '"')
+                .replace('\\\\n', '\n')
+                .replace('\\\\t', '\t')
+                .replace('\\\\\\\\', '\\')
+                .replace('\\"', '"'))
     return s
 
 
@@ -99,16 +107,47 @@ def _parse_vec2(s: str) -> tuple[float, float]:
 
 
 def _parse_vec3(s: str) -> tuple[float, float, float]:
+    # Fix Bug #19: default was (0, 100, 0) — should be (0, 0, 0)
     m = re.match(r'\[([^,\]]+),([^,\]]+),([^\]]+)\]', s.strip())
     if m:
         try:
             return float(m.group(1)), float(m.group(2)), float(m.group(3))
         except ValueError:
             pass
-    return 0.0, 100.0, 0.0
+    return 0.0, 0.0, 0.0
+
+
+def _paren_depth(line: str) -> int:
+    """
+    Count net paren depth of a line, ignoring string literals and -- comments.
+    Fix Bug #16 / #18: naive count() included parens inside strings and comments.
+    """
+    depth = 0
+    in_str = False
+    i = 0
+    while i < len(line):
+        c = line[i]
+        if in_str:
+            if c == '\\':
+                i += 2          # skip escaped char
+                continue
+            if c == '"':
+                in_str = False
+        else:
+            if c == '"':
+                in_str = True
+            elif c == '-' and i + 1 < len(line) and line[i + 1] == '-':
+                break            # rest is a comment
+            elif c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+        i += 1
+    return depth
 
 
 def _consume_value(s: str) -> tuple[str, str]:
+    """Consume one value token from the start of s, return (value, remainder)."""
     if not s:
         return '', ''
     if s[0] == '"':
@@ -137,7 +176,11 @@ def _consume_value(s: str) -> tuple[str, str]:
         if m:
             return m.group(1), s[m.end():].lstrip()
     if s[0] == '[':
-        end = s.index(']') + 1 if ']' in s else len(s)
+        # Fix Bug #13: use safe search instead of index() which raises ValueError
+        end = s.find(']')
+        if end == -1:
+            return s, ''
+        end += 1
         return s[:end], s[end:].lstrip()
     m = re.match(r'([^\s:,]+)', s)
     if m:
@@ -146,6 +189,10 @@ def _consume_value(s: str) -> tuple[str, str]:
 
 
 def _parse_params(param_str: str) -> dict[str, str]:
+    """
+    Tokenize key:value pairs from a parameter string.
+    Last value wins for duplicate keys (Bug #14 — inherent dict behaviour, acceptable).
+    """
     result: dict[str, str] = {}
     s = param_str.strip()
     while s:
@@ -249,15 +296,17 @@ def _parse_rollout_body(
     lines: list[str],
     body_start: int,
     body_end: int,
-) -> tuple[list[ControlModel], dict[tuple[str,str], str], list[str], list[str]]:
+) -> tuple[list[ControlModel], dict[tuple[str, str], str], list[str], list[str], list[str]]:
     """
     Parse lines[body_start:body_end] as the content of a rollout block.
-    Returns (controls, event_bodies, extra_lines, warnings).
+    Returns (controls, event_bodies, extra_lines, orphaned_events_raw, warnings).
     """
     controls: list[ControlModel] = []
     event_bodies: dict[tuple[str, str], str] = {}
     extra_lines: list[str] = []
+    orphaned_events: list[str] = []   # Fix Bug #15: raw text of unmatched handlers
     warnings: list[str] = []
+    ctrl_names: set[str] = set()
 
     body = lines[body_start:body_end]
     i = 0
@@ -276,15 +325,16 @@ def _parse_rollout_body(
             ctrl_name = on_m.group(1)
             event_name = on_m.group(2)
             args_str = on_m.group(3).strip()
+            handler_header = raw          # save for orphan verbatim output
             i += 1
-            # collect body
-            if i < len(body) and body[i].strip() == '(':
-                # multi-line block
+
+            # collect body using string-aware paren counter (Fix Bug #16)
+            if i < len(body) and body[i].strip().startswith('('):
                 depth = 0
                 block: list[str] = []
                 while i < len(body):
                     line = body[i]
-                    depth += line.count('(') - line.count(')')
+                    depth += _paren_depth(line)
                     block.append(line)
                     i += 1
                     if depth <= 0:
@@ -297,15 +347,22 @@ def _parse_rollout_body(
                 body_code = ''
 
             event_bodies[(ctrl_name, event_name)] = body_code
-            for ctrl in controls:
-                if ctrl.name == ctrl_name:
-                    ctrl.event_handlers.append(
-                        EventHandler(event=event_name, args=args_str, code=body_code)
-                    )
-                    break
+
+            # Fix Bug #15: only attach to control if it exists — otherwise store verbatim
+            if ctrl_name in ctrl_names:
+                for ctrl in controls:
+                    if ctrl.name == ctrl_name:
+                        ctrl.event_handlers.append(
+                            EventHandler(event=event_name, args=args_str,
+                                         code=body_code)
+                        )
+                        break
             else:
+                # Orphaned: control not declared yet (or at all)
+                orphaned_events.append(handler_header + body_code)
                 warnings.append(
-                    f"Event 'on {ctrl_name} {event_name}' has no matching control declaration."
+                    f"Event 'on {ctrl_name} {event_name}' has no matching control "
+                    f"— written verbatim."
                 )
             continue
 
@@ -323,13 +380,14 @@ def _parse_rollout_body(
                     rest = lm.group(2).strip()
             _apply_params(ctrl, _parse_params(rest))
             controls.append(ctrl)
+            ctrl_names.add(cname)
             i += 1
             continue
 
         extra_lines.append(raw)
         i += 1
 
-    return controls, event_bodies, extra_lines, warnings
+    return controls, event_bodies, extra_lines, orphaned_events, warnings
 
 
 # ---------------------------------------------------------------------------
@@ -353,15 +411,14 @@ def parse_ms_file(path: str) -> ParsedMS:
             i += 1
             continue
 
-        # --- Found a rollout ---
         # flush accumulated text
         if text_buf:
             result.segments.append(TextSegment(''.join(text_buf)))
             text_buf = []
 
-        indent = m.group(1)
-        rname  = m.group(2)
-        rtitle = m.group(3)
+        indent  = m.group(1)
+        rname   = m.group(2)
+        rtitle  = m.group(3)
         rparams = _parse_params(m.group(4))
 
         model = RolloutModel(rollout_name=rname, rollout_title=rtitle)
@@ -381,29 +438,28 @@ def parse_ms_file(path: str) -> ParsedMS:
             model.pos_x, model.pos_y = int(x), int(y)
             model.use_pos = True
 
-        # find opening paren
+        # find opening paren (string-aware — Fix Bug #18)
         open_idx = i
-        if '(' not in line:
-            for j in range(i + 1, min(i + 3, len(lines))):
-                if '(' in lines[j]:
+        if _paren_depth(line) == 0:
+            for j in range(i + 1, min(i + 4, len(lines))):
+                if _paren_depth(lines[j]) > 0:
                     open_idx = j
                     break
 
         body_start = open_idx + 1
 
-        # scan for matching close paren
+        # scan for matching close paren using string-aware counter
         depth = 0
         rollout_end = body_start
         for k in range(open_idx, len(lines)):
-            depth += lines[k].count('(') - lines[k].count(')')
+            depth += _paren_depth(lines[k])
             if k >= body_start and depth <= 0:
                 rollout_end = k
                 break
 
         # parse body
-        controls, event_bodies, extra_lines, warnings = _parse_rollout_body(
-            lines, body_start, rollout_end
-        )
+        controls, event_bodies, extra_lines, orphaned, warnings = \
+            _parse_rollout_body(lines, body_start, rollout_end)
         model.controls = controls
 
         seg = RolloutSegment(
@@ -411,12 +467,12 @@ def parse_ms_file(path: str) -> ParsedMS:
             rollout_indent=indent,
             event_bodies=event_bodies,
             extra_lines=extra_lines,
+            orphaned_events=orphaned,
             parse_warnings=warnings,
         )
         result.segments.append(seg)
         result.parse_warnings.extend(warnings)
 
-        # closing ')' line + newline after
         i = rollout_end + 1
 
     if text_buf:
