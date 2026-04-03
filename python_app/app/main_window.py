@@ -9,6 +9,7 @@ Layout:
 from __future__ import annotations
 import copy
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -529,6 +530,46 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
     # .ms round-trip import / export
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Patch radiobuttons labels from on-open handler bodies
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _patch_radiobuttons_labels(seg) -> None:
+        """
+        Scans all event handler bodies in a RolloutSegment for
+        assignments like:  rad_foo.labels = #("A","B","C")
+        and writes the extracted labels back into the ControlModel.
+        This lets radiobuttons show real labels in the Send-to-Max preview.
+        """
+        ctrl_map = {c.name: c for c in seg.model.controls if c.control_type == "radiobuttons"}
+        if not ctrl_map:
+            return
+
+        # Pattern:  controlName.labels = #("a", "b", ...)
+        _LABELS_RE = re.compile(
+            r'\b(\w+)\.labels\s*=\s*#\(([^)]+)\)',
+            re.IGNORECASE
+        )
+        _STR_RE = re.compile(r'"([^"]*)"')
+
+        # Search all handler bodies stored in event_bodies
+        for body_code in seg.event_bodies.values():
+            for m in _LABELS_RE.finditer(body_code):
+                name = m.group(1)
+                if name in ctrl_map:
+                    labels = _STR_RE.findall(m.group(2))
+                    if labels:
+                        ctrl_map[name].labels = labels
+
+        # Also search orphaned_events (verbatim text)
+        for raw in seg.orphaned_events:
+            for m in _LABELS_RE.finditer(raw):
+                name = m.group(1)
+                if name in ctrl_map:
+                    labels = _STR_RE.findall(m.group(2))
+                    if labels:
+                        ctrl_map[name].labels = labels
+
     def _open_ms(self):
         if not self._confirm_discard():
             return
@@ -546,6 +587,10 @@ class MainWindow(QMainWindow):
                     "No rollout blocks found in this file.\n"
                     "The file may use dynamic control creation which cannot be parsed.")
                 return
+
+            # Patch radiobuttons labels from on-open handler bodies
+            for seg in segs:
+                self._patch_radiobuttons_labels(seg)
 
             self._parsed_ms = parsed
             self._current_file = Path(path)
